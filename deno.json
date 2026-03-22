@@ -1,12 +1,15 @@
 {
-  "name": "@lit/lit",
-  "version": "0.1.0",
-  "tasks": {
-    "tangle": "deno run --allow-read --allow-write src/main.ts tangle",
-    "weave": "deno run --allow-read --allow-write src/main.ts weave",
-    "test": "deno test --allow-read"
-  },
-  "compilerOptions": {
-    "strict": true
-  }
+    "version": "0.1.0",
+    "tasks": {
+        "tangle": "deno run --allow-read --allow-write src/main.ts tangle",
+        "weave": "deno run --allow-read --allow-write src/main.ts weave",
+        "test": "deno test --allow-read"
+    },
+    "imports": {
+        "@std/assert": "jsr:@std/assert@1",
+        "@std/cli/parse-args": "jsr:@std/cli@1/parse-args"
+    },
+    "compilerOptions": {
+        "strict": true
+    }
 }

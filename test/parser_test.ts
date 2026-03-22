@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { parse } from "../src/parser.ts";
 
 const SAMPLE = `NB. variants: base < poly < full

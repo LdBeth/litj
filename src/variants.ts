@@ -61,7 +61,7 @@ export function resolveChunks(
 
   const resolved: ResolvedChunk[] = [];
 
-  for (const [name, candidates] of byName) {
+  for (const [_name, candidates] of byName) {
     // Filter out overridden candidates
     const active = candidates.filter(
       (c) => !overridden.has(`${c.variant}.${c.name}`),

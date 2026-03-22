@@ -1,4 +1,4 @@
-import type { Chunk, Document, Prose, VariantOrder } from "./types.ts";
+import type { Chunk, Document, Prose } from "./types.ts";
 import { isReachable } from "./variants.ts";
 
 function escapeXml(s: string): string {

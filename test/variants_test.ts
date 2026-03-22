@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { parse } from "../src/parser.ts";
 import { isAncestor, isReachable, resolveChunks } from "../src/variants.ts";
 

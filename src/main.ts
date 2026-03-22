@@ -1,4 +1,4 @@
-import { parseArgs } from "jsr:@std/cli/parse-args";
+import { parseArgs } from "@std/cli/parse-args";
 import { parse } from "./parser.ts";
 import { resolveChunks } from "./variants.ts";
 import { tangle } from "./tangle.ts";
