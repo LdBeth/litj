@@ -3,7 +3,7 @@ import type { Chunk, Document, Prose, Section, VariantOrder } from "./types.ts";
 const VARIANT_HEADER = /^NB\.%\s+variants:\s*(.+)$/;
 const CHUNK_OPEN = /^NB\.%\s+\[\[(.+)$/;
 const CHUNK_CLOSE = /^NB\.%\s+\]\]\s*$/;
-const JDEF_OPEN = /^0\s*:\s*0\s*$/;
+const JDEF_OPEN = /^\[\s*0\s+:\s*0\s*$/;
 const JDEF_CLOSE = /^\)\s*$/;
 
 /** Parse a variant ordering declaration like "base < poly < full". */

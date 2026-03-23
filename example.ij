@@ -3,6 +3,10 @@ NB.% variants: base < poly < full
 NB. This is a comment
 
 0 : 0
+This is another comment
+)
+
+[ 0 : 0
 This module defines type variable constructors.
 The base variant provides a simple wrapper.
 )
@@ -13,7 +17,7 @@ mkTyVar =: monad define
 )
 NB.% ]]
 
-0 : 0
+[ 0 :0
 The polymorphic variant adds category information
 to type variables.
 )
@@ -24,7 +28,7 @@ mkTyVar =: monad define
 )
 NB.% ]]
 
-0 : 0
+[0 : 0
 A helper used across all variants.
 )
 
