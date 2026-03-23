@@ -3,23 +3,23 @@ import { parse } from "../src/parser.ts";
 import { resolveChunks } from "../src/variants.ts";
 import { tangle } from "../src/tangle.ts";
 
-const SAMPLE = `NB. variants: base < poly
+const SAMPLE = `NB.% variants: base < poly
 
-NB. [[base.mkTyVar
+NB.% [[base.mkTyVar
 mkTyVar =: monad define
   Ty_Var y
 )
-NB. ]]
+NB.% ]]
 
-NB. [[poly.mkTyVar -base.mkTyVar
+NB.% [[poly.mkTyVar -base.mkTyVar
 mkTyVar =: monad define
   Ty_Var y, TyVarCateg_Plain
 )
-NB. ]]
+NB.% ]]
 
-NB. [[base.helper
+NB.% [[base.helper
 helper =: 3 : 'y + 1'
-NB. ]]
+NB.% ]]
 `;
 
 Deno.test("tangle: base variant", () => {

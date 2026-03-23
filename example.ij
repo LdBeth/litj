@@ -1,25 +1,33 @@
-NB. variants: base < poly < full
+NB.% variants: base < poly < full
 
+NB. This is a comment
+
+0 : 0
 This module defines type variable constructors.
 The base variant provides a simple wrapper.
+)
 
-NB. [[base.mkTyVar
+NB.% [[base.mkTyVar
 mkTyVar =: monad define
   Ty_Var y
 )
-NB. ]]
+NB.% ]]
 
+0 : 0
 The polymorphic variant adds category information
 to type variables.
+)
 
-NB. [[poly.mkTyVar -base.mkTyVar
+NB.% [[poly.mkTyVar -base.mkTyVar
 mkTyVar =: monad define
   Ty_Var y, TyVarCateg_Plain
 )
-NB. ]]
+NB.% ]]
 
+0 : 0
 A helper used across all variants.
+)
 
-NB. [[base.display
+NB.% [[base.display
 display =: 3 : 'smoutput y'
-NB. ]]
+NB.% ]]

@@ -1,8 +1,10 @@
 import type { Chunk, Document, Prose, Section, VariantOrder } from "./types.ts";
 
-const VARIANT_HEADER = /^NB\.\s+variants:\s*(.+)$/;
-const CHUNK_OPEN = /^NB\.\s+\[\[(.+)$/;
-const CHUNK_CLOSE = /^NB\.\s+\]\]\s*$/;
+const VARIANT_HEADER = /^NB\.%\s+variants:\s*(.+)$/;
+const CHUNK_OPEN = /^NB\.%\s+\[\[(.+)$/;
+const CHUNK_CLOSE = /^NB\.%\s+\]\]\s*$/;
+const JDEF_OPEN = /^0\s*:\s*0\s*$/;
+const JDEF_CLOSE = /^\)\s*$/;
 
 /** Parse a variant ordering declaration like "base < poly < full". */
 function parseVariantOrder(decl: string): VariantOrder {
@@ -51,6 +53,7 @@ export function parse(source: string): Document {
 
   let proseLines: string[] = [];
   let inChunk = false;
+  let inJdef = false;
   let currentChunk: { variant: string; name: string; overrides: string[] } | null = null;
   let chunkLines: string[] = [];
 
@@ -81,6 +84,16 @@ export function parse(source: string): Document {
       continue;
     }
 
+    if (inJdef) {
+      if (JDEF_CLOSE.test(line)) {
+        flushProse();
+        inJdef = false;
+      } else {
+        proseLines.push(line);
+      }
+      continue;
+    }
+
     const variantMatch = line.match(VARIANT_HEADER);
     if (variantMatch) {
       flushProse();
@@ -97,17 +110,24 @@ export function parse(source: string): Document {
       continue;
     }
 
-    proseLines.push(line);
-  }
+    if (JDEF_OPEN.test(line)) {
+      inJdef = true;
+      continue;
+    }
 
-  flushProse();
+    // All other lines (plain NB. comments, blank lines, etc.) are discarded.
+  }
 
   if (inChunk) {
     throw new Error("Unterminated chunk at end of file");
   }
 
+  if (inJdef) {
+    throw new Error("Unterminated 0 : 0 block at end of file");
+  }
+
   if (!variants) {
-    throw new Error("Missing variant declaration (NB. variants: ...)");
+    throw new Error("Missing variant declaration (NB.% variants: ...)");
   }
 
   return { variants, sections };

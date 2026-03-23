@@ -2,21 +2,23 @@ import { assertEquals } from "@std/assert";
 import { parse } from "../src/parser.ts";
 import { weave } from "../src/weave.ts";
 
-const SAMPLE = `NB. variants: base < poly
+const SAMPLE = `NB.% variants: base < poly
 
+0 : 0
 Documentation about types.
+)
 
-NB. [[base.mkTyVar
+NB.% [[base.mkTyVar
 mkTyVar =: monad define
   Ty_Var y
 )
-NB. ]]
+NB.% ]]
 
-NB. [[poly.mkTyVar -base.mkTyVar
+NB.% [[poly.mkTyVar -base.mkTyVar
 mkTyVar =: monad define
   Ty_Var y, TyVarCateg_Plain
 )
-NB. ]]
+NB.% ]]
 `;
 
 Deno.test("weave: produces valid XML structure", () => {
@@ -48,13 +50,15 @@ Deno.test("weave: poly variant includes both chunks", () => {
 });
 
 Deno.test("weave: escapes XML entities", () => {
-  const src = `NB. variants: base < ext
+  const src = `NB.% variants: base < ext
 
+0 : 0
 Docs with <special> & "chars".
+)
 
-NB. [[base.foo
+NB.% [[base.foo
 x =: 1 < 2
-NB. ]]
+NB.% ]]
 `;
   const doc = parse(src);
   const xml = weave(doc, "base");
