@@ -3,17 +3,16 @@ import type { Chunk, Document, ResolvedChunk, VariantOrder } from "./types.ts";
 /**
  * Returns true if `a` is an ancestor of (less than) `b` in the variant order,
  * i.e. `a < b`.
+ *
+ * The successors map is already a transitive closure (each variant maps to all
+ * later variants), so a single `includes` suffices — no recursion needed.
  */
 export function isAncestor(
   order: VariantOrder,
   a: string,
   b: string,
 ): boolean {
-  if (a === b) return false;
-  const succs = order.successors.get(a);
-  if (!succs) return false;
-  if (succs.includes(b)) return true;
-  return succs.some((s) => isAncestor(order, s, b));
+  return order.successors.get(a)?.includes(b) ?? false;
 }
 
 /**
@@ -32,27 +31,31 @@ export function isReachable(
  * Resolve chunks for a target variant.
  * For each chunk name, selects the highest-priority (closest to target)
  * variant that is <= target. Handles explicit overrides.
+ *
+ * Single-pass fold over sections builds all three structures at once:
+ *   (byName, overridden, nameOrder) = foldl step (Map, Set, Map) sections
  */
 export function resolveChunks(
   doc: Document,
   target: string,
 ): ResolvedChunk[] {
-  const chunks = doc.sections.filter((s): s is Chunk => s.kind === "chunk");
   const order = doc.variants;
 
-  // Collect all chunks reachable at the target variant
-  const reachable = chunks.filter((c) => isReachable(order, c.variant, target));
-
-  // Group by chunk name, pick the highest-priority variant for each
+  // Single fold: filter chunks, filter reachable, group by name,
+  // collect overrides, and record source order — all in one pass.
   const byName = new Map<string, Chunk[]>();
-  for (const c of reachable) {
-    const existing = byName.get(c.name) ?? [];
-    existing.push(c);
-    byName.set(c.name, existing);
-  }
+  const overridden = new Set<string>();
+  const nameOrder = new Map<string, number>();
 
-  // Build a set of overridden qualified names (e.g., "base.mkTyVar")
-  const overridden = new Set(reachable.flatMap((c) => c.overrides));
+  for (const s of doc.sections) {
+    if (s.kind !== "chunk") continue;
+    if (!nameOrder.has(s.name)) nameOrder.set(s.name, nameOrder.size);
+    if (!isReachable(order, s.variant, target)) continue;
+    const existing = byName.get(s.name) ?? [];
+    existing.push(s);
+    byName.set(s.name, existing);
+    for (const o of s.overrides) overridden.add(o);
+  }
 
   const resolved: ResolvedChunk[] = [];
 
@@ -64,14 +67,10 @@ export function resolveChunks(
 
     if (active.length === 0) continue;
 
-    // Pick the one closest to target (most specific variant)
-    active.sort((a, b) => {
-      if (isAncestor(order, a.variant, b.variant)) return 1; // b is more specific
-      if (isAncestor(order, b.variant, a.variant)) return -1;
-      return 0;
-    });
-
-    const best = active[0];
+    // Pick the one closest to target (most specific variant) — O(n) reduce
+    const best = active.reduce((a, b) =>
+      isAncestor(order, a.variant, b.variant) ? b : a
+    );
     resolved.push({
       name: best.name,
       variant: best.variant,
@@ -80,10 +79,7 @@ export function resolveChunks(
     });
   }
 
-  // Preserve source order: order by first appearance of each chunk name
-  const nameOrder = new Map(
-    [...new Set(chunks.map((c) => c.name))].map((name, i) => [name, i]),
-  );
+  // Preserve source order
   resolved.sort((a, b) =>
     (nameOrder.get(a.name) ?? 0) - (nameOrder.get(b.name) ?? 0)
   );

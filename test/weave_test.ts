@@ -1,6 +1,28 @@
 import { assertEquals } from "@std/assert";
+import { parse as parseXml } from "@std/xml";
+import type { XmlElement, XmlTextNode } from "@std/xml";
 import { parse } from "../src/parser.ts";
 import { weave } from "../src/weave.ts";
+
+// ── XML helpers ──────────────────────────────────────────────────────────────
+
+function xmlDoc(src: string, variant: string): XmlElement {
+  return parseXml(weave(parse(src), variant)).root!;
+}
+
+function children(el: XmlElement, tag?: string): XmlElement[] {
+  const els = el.children.filter((n): n is XmlElement => n.type === "element");
+  return tag ? els.filter((e) => e.name.local === tag) : els;
+}
+
+function textOf(el: XmlElement): string {
+  return el.children
+    .filter((n): n is XmlTextNode => n.type === "text")
+    .map((n) => n.text)
+    .join("");
+}
+
+// ── fixtures ─────────────────────────────────────────────────────────────────
 
 const SAMPLE = `NB.% variants: base < poly
 
@@ -21,32 +43,44 @@ mkTyVar =: monad define
 NB.% ]]
 `;
 
+// ── tests ────────────────────────────────────────────────────────────────────
+
 Deno.test("weave: produces valid XML structure", () => {
-  const doc = parse(SAMPLE);
-  const xml = weave(doc, "base");
-  assertEquals(xml.startsWith('<?xml version="1.0"'), true);
-  assertEquals(xml.includes('<document variant="base">'), true);
-  assertEquals(xml.includes("</document>"), true);
+  const root = xmlDoc(SAMPLE, "base");
+  assertEquals(root.name.local, "document");
+  assertEquals(root.attributes["variant"], "base");
+});
+
+Deno.test("weave: variants header present", () => {
+  const root = xmlDoc(SAMPLE, "base");
+  const variants = children(root, "variants");
+  assertEquals(variants.length, 1);
+  assertEquals(variants[0].attributes["order"], "base < poly");
+  const names = children(variants[0], "variant").map((v) =>
+    v.attributes["name"]
+  );
+  assertEquals(names, ["base", "poly"]);
 });
 
 Deno.test("weave: includes prose", () => {
-  const doc = parse(SAMPLE);
-  const xml = weave(doc, "base");
-  assertEquals(xml.includes("<prose>"), true);
-  assertEquals(xml.includes("Documentation about types."), true);
+  const root = xmlDoc(SAMPLE, "base");
+  const prose = children(root, "prose");
+  assertEquals(prose.length, 1);
+  assertEquals(textOf(prose[0]), "Documentation about types.");
 });
 
 Deno.test("weave: base variant excludes poly chunks", () => {
-  const doc = parse(SAMPLE);
-  const xml = weave(doc, "base");
-  assertEquals(xml.includes('variant="poly"'), false);
+  const root = xmlDoc(SAMPLE, "base");
+  const chunks = children(root, "chunk");
+  assertEquals(chunks.every((c) => c.attributes["variant"] !== "poly"), true);
 });
 
 Deno.test("weave: poly variant includes both chunks", () => {
-  const doc = parse(SAMPLE);
-  const xml = weave(doc, "poly");
-  assertEquals(xml.includes('variant="base"'), true);
-  assertEquals(xml.includes('variant="poly"'), true);
+  const root = xmlDoc(SAMPLE, "poly");
+  const chunks = children(root, "chunk");
+  const variants = chunks.map((c) => c.attributes["variant"]);
+  assertEquals(variants.includes("base"), true);
+  assertEquals(variants.includes("poly"), true);
 });
 
 Deno.test("weave: escapes XML entities", () => {
@@ -60,10 +94,13 @@ NB.% [[base.foo
 x =: 1 < 2
 NB.% ]]
 `;
-  const doc = parse(src);
-  const xml = weave(doc, "base");
-  assertEquals(xml.includes("&lt;special&gt;"), true);
-  assertEquals(xml.includes("&amp;"), true);
+  const root = xmlDoc(src, "base");
+  const prose = children(root, "prose");
+  assertEquals(textOf(prose[0]), 'Docs with <special> & "chars".');
+
+  const chunk = children(root, "chunk")[0];
+  const code = children(chunk, "code")[0];
+  assertEquals(textOf(code), "x =: 1 < 2");
 });
 
 Deno.test("weave: refinement steps emitted as <step> elements", () => {
@@ -77,15 +114,18 @@ NB.% :: reflex >>
 sieve =: {{ final }}
 NB.% ]]
 `;
-  const doc = parse(src);
-  const xml = weave(doc, "base");
-  assertEquals(xml.includes('<step reason=""'), true);
-  assertEquals(xml.includes('reason="tacify"'), true);
-  assertEquals(xml.includes('reason="reflex" final="true"'), true);
-  assertEquals(xml.includes("{{ naive }}"), true);
-  assertEquals(xml.includes("{{ final }}"), true);
-  // No <code> as direct child of <chunk> (depth 2 = 4sp) for multi-step chunks
-  assertEquals(xml.includes("\n    <code>"), false);
+  const root = xmlDoc(src, "base");
+  const chunk = children(root, "chunk")[0];
+  const steps = children(chunk, "step");
+  assertEquals(steps.length, 3);
+
+  assertEquals(steps[0].attributes["reason"], "");
+  assertEquals(steps[1].attributes["reason"], "tacify");
+  assertEquals(steps[2].attributes["reason"], "reflex");
+  assertEquals(steps[2].attributes["final"], "true");
+
+  assertEquals(textOf(children(steps[0], "code")[0]), "sieve =: {{ naive }}");
+  assertEquals(textOf(children(steps[2], "code")[0]), "sieve =: {{ final }}");
 });
 
 Deno.test("weave: single-step chunk emits <code> directly", () => {
@@ -94,8 +134,9 @@ NB.% [[base.x
 x =: 1
 NB.% ]]
 `;
-  const doc = parse(src);
-  const xml = weave(doc, "base");
-  assertEquals(xml.includes("\n    <code>"), true);
-  assertEquals(xml.includes("<step"), false);
+  const root = xmlDoc(src, "base");
+  const chunk = children(root, "chunk")[0];
+  assertEquals(children(chunk, "code").length, 1);
+  assertEquals(children(chunk, "step").length, 0);
+  assertEquals(textOf(children(chunk, "code")[0]), "x =: 1");
 });
