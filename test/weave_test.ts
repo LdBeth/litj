@@ -4,7 +4,7 @@ import { weave } from "../src/weave.ts";
 
 const SAMPLE = `NB.% variants: base < poly
 
-0 : 0
+[ 0 : 0
 Documentation about types.
 )
 
@@ -52,7 +52,7 @@ Deno.test("weave: poly variant includes both chunks", () => {
 Deno.test("weave: escapes XML entities", () => {
   const src = `NB.% variants: base < ext
 
-0 : 0
+[ 0 : 0
 Docs with <special> & "chars".
 )
 

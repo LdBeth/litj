@@ -3,7 +3,7 @@ import { parse } from "../src/parser.ts";
 
 const SAMPLE = `NB.% variants: base < poly < full
 
-0 : 0
+[ 0 : 0
 This is documentation about type variables.
 )
 
@@ -13,7 +13,7 @@ mkTyVar =: monad define
 )
 NB.% ]]
 
-0 : 0
+[ 0 : 0
 Polymorphism requires extra info.
 )
 
@@ -87,7 +87,7 @@ NB.% ]]
 
 Deno.test("parse: 0 : 0 prose block strips delimiters", () => {
   const src = `NB.% variants: base
-0 : 0
+[ 0 : 0
 Hello world.
 )
 NB.% [[base.x
@@ -106,7 +106,7 @@ NB.% ]]
 
 Deno.test("parse: unterminated 0 : 0 block throws", () => {
   const bad = `NB.% variants: base
-0 : 0
+[ 0 : 0
 hello
 `;
   assertThrows(() => parse(bad), Error, "Unterminated 0 : 0 block");
