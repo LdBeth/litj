@@ -1,63 +1,80 @@
+import { stringify } from "@std/xml";
 import type { Chunk, Document, Prose } from "./types.ts";
 import { isReachable } from "./variants.ts";
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+// ── XML node builders ────────────────────────────────────────────────────────
+
+interface El {
+  type: "element";
+  name: { raw: string; prefix: string; local: string; uri: string };
+  attributes: Record<string, string>;
+  children: Node[];
 }
+
+type Node = El | { type: "text"; text: string };
+
+function el(
+  tag: string,
+  attrs: Record<string, string | undefined>,
+  children: Node[] = [],
+): El {
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v != null) clean[k] = v;
+  }
+  return {
+    type: "element",
+    name: { raw: tag, prefix: "", local: tag, uri: "" },
+    attributes: clean,
+    children,
+  };
+}
+
+function text(s: string): Node {
+  return { type: "text", text: s };
+}
+
+// ── weave ───────────────────────────────────────────────────────────────────
 
 /** Weave a document into custom XML for a target variant. */
 export function weave(doc: Document, target: string): string {
-  const out: string[] = [];
-  out.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-  out.push(`<document variant="${escapeXml(target)}">`);
-
-  // Emit variant metadata
-  out.push(
-    `  <variants order="${doc.variants.names.map(escapeXml).join(" &lt; ")}">`,
-  );
-  for (const name of doc.variants.names) {
-    out.push(`    <variant name="${escapeXml(name)}"/>`);
-  }
-  out.push(`  </variants>`);
-
-  for (const section of doc.sections) {
+  const sections = doc.sections.flatMap((section): El[] => {
     if (section.kind === "prose") {
-      const text = (section as Prose).text.trim();
-      if (text.length > 0) {
-        out.push(`  <prose>${escapeXml(text)}</prose>`);
-      }
-    } else {
-      const chunk = section as Chunk;
-      if (!isReachable(doc.variants, chunk.variant, target)) continue;
-
-      const overrideAttr = chunk.overrides.length > 0
-        ? ` overrides="${chunk.overrides.map(escapeXml).join(" ")}"`
-        : "";
-      out.push(
-        `  <chunk variant="${escapeXml(chunk.variant)}" name="${
-          escapeXml(chunk.name)
-        }"${overrideAttr}>`,
-      );
-      if (chunk.steps.length > 1) {
-        for (const step of chunk.steps) {
-          const finalAttr = step.isFinal ? ` final="true"` : "";
-          out.push(
-            `    <step reason="${escapeXml(step.reason)}"${finalAttr}><code>${
-              escapeXml(step.body)
-            }</code></step>`,
-          );
-        }
-      } else {
-        out.push(`    <code>${escapeXml(chunk.body)}</code>`);
-      }
-      out.push(`  </chunk>`);
+      const t = (section as Prose).text.trim();
+      if (!t) return [];
+      return [el("prose", {}, [text(t)])];
     }
-  }
+    const chunk = section as Chunk;
+    if (!isReachable(doc.variants, chunk.variant, target)) return [];
 
-  out.push(`</document>`);
-  return out.join("\n") + "\n";
+    const body: Node[] = chunk.steps.length > 1
+      ? chunk.steps.map((step) =>
+        el("step", {
+          reason: step.reason,
+          final: step.isFinal ? "true" : undefined,
+        }, [el("code", {}, [text(step.body)])])
+      )
+      : [el("code", {}, [text(chunk.body)])];
+
+    return [el("chunk", {
+      variant: chunk.variant,
+      name: chunk.name,
+      overrides: chunk.overrides.length > 0
+        ? chunk.overrides.join(" ")
+        : undefined,
+    }, body)];
+  });
+
+  const root = el("document", { variant: target }, [
+    el(
+      "variants",
+      { order: doc.variants.names.join(" < ") },
+      doc.variants.names.map((name) => el("variant", { name })),
+    ),
+    ...sections,
+  ]);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${
+    stringify(root, { indent: "  " })
+  }\n`;
 }

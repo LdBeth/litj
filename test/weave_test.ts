@@ -84,8 +84,8 @@ NB.% ]]
   assertEquals(xml.includes('reason="reflex" final="true"'), true);
   assertEquals(xml.includes("{{ naive }}"), true);
   assertEquals(xml.includes("{{ final }}"), true);
-  // No bare <code> at top level for multi-step chunks
-  assertEquals(xml.includes("    <code>"), false);
+  // No <code> as direct child of <chunk> (depth 2 = 4sp) for multi-step chunks
+  assertEquals(xml.includes("\n    <code>"), false);
 });
 
 Deno.test("weave: single-step chunk emits <code> directly", () => {
@@ -96,6 +96,6 @@ NB.% ]]
 `;
   const doc = parse(src);
   const xml = weave(doc, "base");
-  assertEquals(xml.includes("    <code>"), true);
+  assertEquals(xml.includes("\n    <code>"), true);
   assertEquals(xml.includes("<step"), false);
 });
