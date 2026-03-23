@@ -52,12 +52,7 @@ export function resolveChunks(
   }
 
   // Build a set of overridden qualified names (e.g., "base.mkTyVar")
-  const overridden = new Set<string>();
-  for (const c of reachable) {
-    for (const ov of c.overrides) {
-      overridden.add(ov);
-    }
-  }
+  const overridden = new Set(reachable.flatMap((c) => c.overrides));
 
   const resolved: ResolvedChunk[] = [];
 
@@ -77,18 +72,21 @@ export function resolveChunks(
     });
 
     const best = active[0];
-    resolved.push({ name: best.name, variant: best.variant, body: best.body });
+    resolved.push({
+      name: best.name,
+      variant: best.variant,
+      body: best.body,
+      steps: best.steps,
+    });
   }
 
   // Preserve source order: order by first appearance of each chunk name
-  const nameOrder = new Map<string, number>();
-  let idx = 0;
-  for (const c of chunks) {
-    if (!nameOrder.has(c.name)) {
-      nameOrder.set(c.name, idx++);
-    }
-  }
-  resolved.sort((a, b) => (nameOrder.get(a.name) ?? 0) - (nameOrder.get(b.name) ?? 0));
+  const nameOrder = new Map(
+    [...new Set(chunks.map((c) => c.name))].map((name, i) => [name, i]),
+  );
+  resolved.sort((a, b) =>
+    (nameOrder.get(a.name) ?? 0) - (nameOrder.get(b.name) ?? 0)
+  );
 
   return resolved;
 }

@@ -1,4 +1,4 @@
-NB.% variants: base < poly < full
+NB.% variants: naive < n1 < n2 < e1 < e2 < poly < full < test
 
 NB. This is a comment
 
@@ -7,31 +7,91 @@ This is another comment
 )
 
 [ 0 : 0
-This module defines type variable constructors.
-The base variant provides a simple wrapper.
+** Prime Sieve
+
+*** Helper: fromTo
+Generate a range from x to y with step u
 )
 
-NB.% [[base.mkTyVar
-mkTyVar =: monad define
-  Ty_Var y
-)
+NB.% [[naive.helper
+fromTo=:{{ x+u*}:i.<.y%u }}
 NB.% ]]
 
 [ 0 :0
-The polymorphic variant adds category information
-to type variables.
+*** Naive Sieve (Iterative Versions)
+
+**** Version 1: Basic loop with explicit removal
+Start with numbers 2..y (drop 0 and 1)
 )
 
-NB.% [[poly.mkTyVar -base.mkTyVar
-mkTyVar =: monad define
-  Ty_Var y, TyVarCateg_Plain
-)
+NB.% [[n1.Sieve
+sieve=:{{ set=.}.>:i.y
+  for_i. set do.
+    if. i e.set do.
+      set=.set-.(+:i) (i fromTo) y
+    end.
+  end.
+  set
+}}
 NB.% ]]
 
 [0 : 0
-A helper used across all variants.
+Remove all multiples of i starting from =+:i=
+
+**** Version 2: Using conditional power conjunction
+Apply removal only if i is still in set
+
+=^:(i e.set)= means "apply if condition is true"
 )
 
-NB.% [[base.display
-display =: 3 : 'smoutput y'
+NB.% [[n2.Sieve -n1.Sieve
+sieve=:{{ set=.}.>:i.y
+  for_i. set do.
+    set=.(-.&((+:i) i fromTo y))^:(i e.set) set
+  end.
+  set
+}}
+NB.% ]]
+
+NB.% [[test.naive
+(sieve 200)-:p:i.46
+NB.% ]]
+
+[ 0 :0
+*** Eratosthenes Sieve
+
+**** Iterative version
+Only check up to ceiling of =%:y= for efficiency
+)
+NB.% [[e1.Sieve -n2.Sieve
+sieve=:{{ set=.}.>:i.y
+  for_i. }.>:i.>.%:y do.
+    set=.(-.&((*:i) i fromTo y))^:(i e.set) set
+  end.
+  set
+}}
+NB.% ]]
+
+[ 0 : 0
+Key optimization: Start removing from =*:i= instead of =+:i=
+)
+NB.% [[e2.Sieve -e1.Sieve -naive.helper
+sieve=:{{ y]F.:((-.*:+]*y&(}:@:i.@(<.@%)))~^:e.)&:(}.@:>:@:i.)>.@%:y }}
+NB.% ]]
+
+[ 0 : 0
+*** Tacit Refinement Example
+
+Deriving a tacit sieve from the explicit form using the reflex law.
+)
+
+NB.% [[poly.Sieve -e2.Sieve
+NB.% <<
+sieve=:{{ set=.}.>:i.y
+  set ]F.:((-.+:+]*y&(}:@:i.@(<.@%)))~^:e.) set
+}}
+NB.% :: make y argument implicit (reflex: f~ y = y f y)
+sieve=:{{ (]F.:((-.+:+]*}:@:i.@(y&(<.@%)))~^:e.))~ }.>:i.y }}
+NB.% :: tacify outer argument >>
+sieve=:(]F.:((-.+:+]*}:@:i.@((>.@%:)&(<.@%)))~^:e.))~@(}.@:>:@:i.)
 NB.% ]]

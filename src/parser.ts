@@ -1,18 +1,28 @@
-import type { Chunk, Document, Prose, Section, VariantOrder } from "./types.ts";
+import type {
+  Chunk,
+  Document,
+  Prose,
+  RefinementStep,
+  Section,
+  VariantOrder,
+} from "./types.ts";
 
 const VARIANT_HEADER = /^NB\.%\s+variants:\s*(.+)$/;
 const CHUNK_OPEN = /^NB\.%\s+\[\[(.+)$/;
 const CHUNK_CLOSE = /^NB\.%\s+\]\]\s*$/;
+const REFINE_OPEN = /^NB\.%\s+<<\s*$/;
+const REFINE_STEP = /^NB\.%\s+::\s*(.*?)(\s+>>)?\s*$/;
 const JDEF_OPEN = /^\[\s*0\s+:\s*0\s*$/;
 const JDEF_CLOSE = /^\)\s*$/;
 
 /** Parse a variant ordering declaration like "base < poly < full". */
 function parseVariantOrder(decl: string): VariantOrder {
-  const names = decl.split("<").map((s) => s.trim()).filter((s) => s.length > 0);
-  const successors = new Map<string, string[]>();
-  for (let i = 0; i < names.length; i++) {
-    successors.set(names[i], names.slice(i + 1));
-  }
+  const names = decl.split("<").map((s) => s.trim()).filter((s) =>
+    s.length > 0
+  );
+  const successors = new Map(
+    names.map((name, i) => [name, names.slice(i + 1)]),
+  );
   return { names, successors };
 }
 
@@ -29,18 +39,16 @@ function parseChunkHeader(header: string): {
   const primary = parts[0];
   const dot = primary.indexOf(".");
   if (dot === -1) {
-    throw new Error(`Invalid chunk header: "${header}" (expected variant.name)`);
+    throw new Error(
+      `Invalid chunk header: "${header}" (expected variant.name)`,
+    );
   }
   const variant = primary.slice(0, dot);
   const name = primary.slice(dot + 1);
 
-  const overrides: string[] = [];
-  for (let i = 1; i < parts.length; i++) {
-    const p = parts[i];
-    if (p.startsWith("-")) {
-      overrides.push(p.slice(1));
-    }
-  }
+  const overrides = parts.slice(1).filter((p) => p.startsWith("-")).map((p) =>
+    p.slice(1)
+  );
 
   return { variant, name, overrides };
 }
@@ -54,8 +62,12 @@ export function parse(source: string): Document {
   let proseLines: string[] = [];
   let inChunk = false;
   let inJdef = false;
-  let currentChunk: { variant: string; name: string; overrides: string[] } | null = null;
+  let currentChunk:
+    | { variant: string; name: string; overrides: string[] }
+    | null = null;
   let chunkLines: string[] = [];
+  let inRefinement = false;
+  let refinementSteps: RefinementStep[] = [];
 
   function flushProse() {
     const text = proseLines.join("\n");
@@ -68,16 +80,46 @@ export function parse(source: string): Document {
   for (const line of lines) {
     if (inChunk) {
       if (CHUNK_CLOSE.test(line)) {
+        let steps: RefinementStep[];
+        let body: string;
+        if (inRefinement) {
+          // Flush remaining lines into the last step
+          refinementSteps[refinementSteps.length - 1].body = chunkLines.join(
+            "\n",
+          );
+          steps = refinementSteps;
+          body = steps[steps.length - 1].body;
+        } else {
+          body = chunkLines.join("\n");
+          steps = [{ reason: "", isFinal: false, body }];
+        }
         sections.push({
           kind: "chunk",
           variant: currentChunk!.variant,
           name: currentChunk!.name,
           overrides: currentChunk!.overrides,
-          body: chunkLines.join("\n"),
+          body,
+          steps,
         } as Chunk);
         inChunk = false;
+        inRefinement = false;
         currentChunk = null;
         chunkLines = [];
+        refinementSteps = [];
+      } else if (REFINE_OPEN.test(line) && !inRefinement) {
+        inRefinement = true;
+        refinementSteps = [{ reason: "", isFinal: false, body: "" }];
+        chunkLines = [];
+      } else if (inRefinement && REFINE_STEP.test(line)) {
+        const m = line.match(REFINE_STEP)!;
+        const reason = m[1].trim();
+        const isFinal = m[2] !== undefined;
+        // Flush accumulated lines into current (last) step
+        refinementSteps[refinementSteps.length - 1].body = chunkLines.join(
+          "\n",
+        );
+        chunkLines = [];
+        refinementSteps.push({ reason, isFinal, body: "" });
       } else {
         chunkLines.push(line);
       }

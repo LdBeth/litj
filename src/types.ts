@@ -4,6 +4,15 @@ export interface Prose {
   text: string;
 }
 
+/** One step in an inline refinement derivation. */
+export interface RefinementStep {
+  /** Law/theorem applied to arrive at this step; "" for the opening spec step. */
+  reason: string;
+  /** True when >> was present on the :: line — marks this as the tangled result. */
+  isFinal: boolean;
+  body: string;
+}
+
 /** A named code chunk tagged with a variant. */
 export interface Chunk {
   kind: "chunk";
@@ -11,7 +20,10 @@ export interface Chunk {
   name: string;
   /** Chunk names this overrides (e.g. ["-base.mkTyVar"] → overrides base.mkTyVar). */
   overrides: string[];
+  /** Final step's body (or full body for non-refinement chunks). Used by tangle. */
   body: string;
+  /** Always length >= 1. Length > 1 means the chunk contains a << derivation. */
+  steps: RefinementStep[];
 }
 
 export type Section = Prose | Chunk;
@@ -39,4 +51,5 @@ export interface ResolvedChunk {
   name: string;
   variant: string;
   body: string;
+  steps: RefinementStep[];
 }

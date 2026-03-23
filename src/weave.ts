@@ -16,7 +16,9 @@ export function weave(doc: Document, target: string): string {
   out.push(`<document variant="${escapeXml(target)}">`);
 
   // Emit variant metadata
-  out.push(`  <variants order="${doc.variants.names.map(escapeXml).join(" &lt; ")}">`);
+  out.push(
+    `  <variants order="${doc.variants.names.map(escapeXml).join(" &lt; ")}">`,
+  );
   for (const name of doc.variants.names) {
     out.push(`    <variant name="${escapeXml(name)}"/>`);
   }
@@ -36,9 +38,22 @@ export function weave(doc: Document, target: string): string {
         ? ` overrides="${chunk.overrides.map(escapeXml).join(" ")}"`
         : "";
       out.push(
-        `  <chunk variant="${escapeXml(chunk.variant)}" name="${escapeXml(chunk.name)}"${overrideAttr}>`,
+        `  <chunk variant="${escapeXml(chunk.variant)}" name="${
+          escapeXml(chunk.name)
+        }"${overrideAttr}>`,
       );
-      out.push(`    <code>${escapeXml(chunk.body)}</code>`);
+      if (chunk.steps.length > 1) {
+        for (const step of chunk.steps) {
+          const finalAttr = step.isFinal ? ` final="true"` : "";
+          out.push(
+            `    <step reason="${escapeXml(step.reason)}"${finalAttr}><code>${
+              escapeXml(step.body)
+            }</code></step>`,
+          );
+        }
+      } else {
+        out.push(`    <code>${escapeXml(chunk.body)}</code>`);
+      }
       out.push(`  </chunk>`);
     }
   }

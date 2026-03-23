@@ -111,3 +111,47 @@ hello
 `;
   assertThrows(() => parse(bad), Error, "Unterminated 0 : 0 block");
 });
+
+const REFINE_SAMPLE = `NB.% variants: base
+NB.% [[base.sieve
+NB.% <<
+sieve =: {{ set ]F.:((-.y&{{(+:y)+y*}:@:i.x<.@%y}}~^:e.) set=.}.>:i.y }}
+NB.% :: tacify
+sieve =: {{ s ]F.:((-.+:+]*y&(}:@:i.@(<.@%)))~^:e.) s=.}.>:i.y }}
+NB.% :: reflex >>
+sieve =: {{ (]F.:((-.+:+]*}:@:i.@(y&(<.@%)))~^:e.))~}.>:i.y }}
+NB.% ]]
+`;
+
+Deno.test("parse: refinement steps parsed correctly", () => {
+  const doc = parse(REFINE_SAMPLE);
+  const chunks = doc.sections.filter((s) => s.kind === "chunk");
+  assertEquals(chunks.length, 1);
+  const c = chunks[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.steps.length, 3);
+    assertEquals(c.steps[0].reason, "");
+    assertEquals(c.steps[0].isFinal, false);
+    assertEquals(c.steps[1].reason, "tacify");
+    assertEquals(c.steps[1].isFinal, false);
+    assertEquals(c.steps[2].reason, "reflex");
+    assertEquals(c.steps[2].isFinal, true);
+    assertEquals(c.body, c.steps[2].body);
+  }
+});
+
+Deno.test("parse: non-refined chunk has single step", () => {
+  const src = `NB.% variants: base
+NB.% [[base.x
+x =: 1
+NB.% ]]
+`;
+  const doc = parse(src);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.steps.length, 1);
+    assertEquals(c.steps[0].reason, "");
+    assertEquals(c.steps[0].isFinal, false);
+    assertEquals(c.steps[0].body, c.body);
+  }
+});

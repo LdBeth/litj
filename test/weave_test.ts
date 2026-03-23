@@ -65,3 +65,37 @@ NB.% ]]
   assertEquals(xml.includes("&lt;special&gt;"), true);
   assertEquals(xml.includes("&amp;"), true);
 });
+
+Deno.test("weave: refinement steps emitted as <step> elements", () => {
+  const src = `NB.% variants: base
+NB.% [[base.sieve
+NB.% <<
+sieve =: {{ naive }}
+NB.% :: tacify
+sieve =: {{ tacit }}
+NB.% :: reflex >>
+sieve =: {{ final }}
+NB.% ]]
+`;
+  const doc = parse(src);
+  const xml = weave(doc, "base");
+  assertEquals(xml.includes('<step reason=""'), true);
+  assertEquals(xml.includes('reason="tacify"'), true);
+  assertEquals(xml.includes('reason="reflex" final="true"'), true);
+  assertEquals(xml.includes("{{ naive }}"), true);
+  assertEquals(xml.includes("{{ final }}"), true);
+  // No bare <code> at top level for multi-step chunks
+  assertEquals(xml.includes("    <code>"), false);
+});
+
+Deno.test("weave: single-step chunk emits <code> directly", () => {
+  const src = `NB.% variants: base
+NB.% [[base.x
+x =: 1
+NB.% ]]
+`;
+  const doc = parse(src);
+  const xml = weave(doc, "base");
+  assertEquals(xml.includes("    <code>"), true);
+  assertEquals(xml.includes("<step"), false);
+});
