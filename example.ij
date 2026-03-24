@@ -89,8 +89,8 @@ Deriving a tacit sieve from the explicit form using the reflex law.
 NB.% [[poly.Sieve -e2.Sieve
 NB.% <<
 sieve=:{{ set ]F.:((-.+:+]*y&(}:@:i.@(<.@%)))~^:e.) set=.}.>:i.y }}
-NB.% :: tacify outer argument
-sieve=:(]F.:((-.+:+]*}:@:i.@((>.@%:)&(<.@%)))~^:e.))~@(}.@:>:@:i.)
+NB.% :: more compact tacit form
+sieve=:{{ s ]F.:((-.+:+]*y&(}:@:i.@(<.@%)))~^:e.) s=.}.>:i.y }}
 NB.% :: make y argument implicit (reflex: f~ y = y f y) >>
 sieve=:{{ (]F.:((-.+:+]*}:@:i.@(y&(<.@%)))~^:e.))~ }.>:i.y }}
 NB.% ]]

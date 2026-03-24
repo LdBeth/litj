@@ -1,23 +1,20 @@
 import { stringify } from "@std/xml";
+import type {
+  XmlDeclarationEvent,
+  XmlDocument,
+  XmlElement,
+  XmlNode,
+} from "@std/xml";
 import type { Chunk, Document, Prose } from "./types.ts";
 import { isReachable } from "./variants.ts";
 
 // ── XML node builders ────────────────────────────────────────────────────────
 
-interface El {
-  type: "element";
-  name: { raw: string; prefix: string; local: string; uri: string };
-  attributes: Record<string, string>;
-  children: Node[];
-}
-
-type Node = El | { type: "text"; text: string };
-
 function el(
   tag: string,
   attrs: Record<string, string | undefined>,
-  children: Node[] = [],
-): El {
+  children: XmlNode[] = [],
+): XmlElement {
   const clean: Record<string, string> = {};
   for (const [k, v] of Object.entries(attrs)) {
     if (v != null) clean[k] = v;
@@ -30,7 +27,7 @@ function el(
   };
 }
 
-function text(s: string): Node {
+function text(s: string): XmlNode {
   return { type: "text", text: s };
 }
 
@@ -38,7 +35,7 @@ function text(s: string): Node {
 
 /** Weave a document into custom XML for a target variant. */
 export function weave(doc: Document, target: string): string {
-  const sections = doc.sections.flatMap((section): El[] => {
+  const sections = doc.sections.flatMap((section): XmlElement[] => {
     if (section.kind === "prose") {
       const t = (section as Prose).text.trim();
       if (!t) return [];
@@ -47,7 +44,7 @@ export function weave(doc: Document, target: string): string {
     const chunk = section as Chunk;
     if (!isReachable(doc.variants, chunk.variant, target)) return [];
 
-    const body: Node[] = chunk.steps.length > 1
+    const body: XmlNode[] = chunk.steps.length > 1
       ? chunk.steps.map((step) =>
         el("step", {
           reason: step.reason,
@@ -65,16 +62,26 @@ export function weave(doc: Document, target: string): string {
     }, body)];
   });
 
-  const root = el("document", { variant: target }, [
-    el(
-      "variants",
-      { order: doc.variants.names.join(" < ") },
-      doc.variants.names.map((name) => el("variant", { name })),
-    ),
-    ...sections,
-  ]);
+  const decl: XmlDeclarationEvent = {
+    type: "declaration",
+    version: "1.0",
+    encoding: "UTF-8",
+    standalone: "yes",
+    line: 0,
+    column: 0,
+    offset: 0,
+  };
+  const root: XmlDocument = {
+    declaration: decl,
+    root: el("document", { variant: target }, [
+      el(
+        "variants",
+        { order: doc.variants.names.join(" < ") },
+        doc.variants.names.map((name) => el("variant", { name })),
+      ),
+      ...sections,
+    ]),
+  };
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n${
-    stringify(root, { indent: "  " })
-  }\n`;
+  return stringify(root, { declaration: true, indent: "  " });
 }
