@@ -41,6 +41,10 @@ function text(s: string): XmlNode {
   return { type: "text", text: s };
 }
 
+function code(s: string): XmlElement {
+  return el("code", {}, [text(s)]);
+}
+
 const decl: XmlDeclaration = {
   type: "declaration",
   version: "1.0",
@@ -54,8 +58,7 @@ export function weave(doc: Document, target: string): string {
   const sections = doc.sections.flatMap((section): XmlElement[] => {
     if (section.kind === "prose") {
       const t = (section as Prose).text.trim();
-      if (!t) return [];
-      return [el("prose", {}, [text(t)])];
+      return t ? [el("prose", {}, [text(t)])] : [];
     }
     const chunk = section as Chunk;
     if (!isReachable(doc.variants, chunk.variant, target)) return [];
@@ -65,16 +68,14 @@ export function weave(doc: Document, target: string): string {
         el("step", {
           reason: step.reason,
           final: step.isFinal ? "true" : undefined,
-        }, [el("code", {}, [text(step.body)])])
+        }, [code(step.body)])
       )
-      : [el("code", {}, [text(chunk.body)])];
+      : [code(chunk.body)];
 
     return [el("chunk", {
       variant: chunk.variant,
       name: chunk.name,
-      overrides: chunk.overrides.length > 0
-        ? chunk.overrides.join(" ")
-        : undefined,
+      overrides: chunk.overrides.join(" ") || undefined,
     }, body)];
   });
 
