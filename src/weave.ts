@@ -1,10 +1,20 @@
 import { stringify } from "@std/xml";
 import type {
-  XmlDeclarationEvent,
-  XmlDocument,
+  XmlDocument as _XmlDocument,
   XmlElement,
   XmlNode,
 } from "@std/xml";
+
+type XmlDeclaration = {
+  type: "declaration";
+  version: string;
+  standalone?: "yes" | "no";
+  encoding?: string;
+};
+
+type XmlDocument = Omit<_XmlDocument, "declaration"> & {
+  declaration?: XmlDeclaration;
+};
 import type { Chunk, Document, Prose } from "./types.ts";
 import { isReachable } from "./variants.ts";
 
@@ -30,6 +40,12 @@ function el(
 function text(s: string): XmlNode {
   return { type: "text", text: s };
 }
+
+const decl: XmlDeclaration = {
+  type: "declaration",
+  version: "1.0",
+  encoding: "UTF-8",
+};
 
 // ── weave ───────────────────────────────────────────────────────────────────
 
@@ -62,16 +78,7 @@ export function weave(doc: Document, target: string): string {
     }, body)];
   });
 
-  const decl: XmlDeclarationEvent = {
-    type: "declaration",
-    version: "1.0",
-    encoding: "UTF-8",
-    standalone: "yes",
-    line: 0,
-    column: 0,
-    offset: 0,
-  };
-  const root: XmlDocument = {
+  const document: XmlDocument = {
     declaration: decl,
     root: el("document", { variant: target }, [
       el(
@@ -83,5 +90,8 @@ export function weave(doc: Document, target: string): string {
     ]),
   };
 
-  return stringify(root, { declaration: true, indent: "  " });
+  return stringify(document as _XmlDocument, {
+    declaration: true,
+    indent: "  ",
+  });
 }
