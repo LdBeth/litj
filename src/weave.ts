@@ -3,6 +3,7 @@ import type {
   XmlDocument as _XmlDocument,
   XmlElement,
   XmlNode,
+  XmlTextNode,
 } from "@std/xml";
 
 type XmlDeclaration = {
@@ -15,7 +16,7 @@ type XmlDeclaration = {
 type XmlDocument = Omit<_XmlDocument, "declaration"> & {
   declaration?: XmlDeclaration;
 };
-import type { Chunk, Document, Prose } from "./types.ts";
+import type { Document } from "./types.ts";
 import { isReachable } from "./variants.ts";
 
 // ── XML node builders ────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ function el(
   };
 }
 
-function text(s: string): XmlNode {
+function text(s: string): XmlTextNode {
   return { type: "text", text: s };
 }
 
@@ -57,10 +58,10 @@ const decl: XmlDeclaration = {
 export function weave(doc: Document, target: string): string {
   const sections = doc.sections.flatMap((section): XmlElement[] => {
     if (section.kind === "prose") {
-      const t = (section as Prose).text.trim();
+      const t = section.text.trim();
       return t ? [el("prose", {}, [text(t)])] : [];
     }
-    const chunk = section as Chunk;
+    const chunk = section;
     if (!isReachable(doc.variants, chunk.variant, target)) return [];
 
     const body: XmlNode[] = chunk.steps.length > 1

@@ -23,10 +23,13 @@ async function main() {
     alias: { v: "variant", o: "output" },
   });
 
-  const command = args._[0] as string | undefined;
-  const inputFile = args._[1] as string | undefined;
+  const command = args._[0];
+  const inputFile = args._[1];
 
-  if (!command || !inputFile) usage();
+  if (
+    !command || !inputFile || typeof command !== "string" ||
+    typeof inputFile !== "string"
+  ) usage();
   if (!args.variant) {
     console.error("Error: --variant is required");
     Deno.exit(1);

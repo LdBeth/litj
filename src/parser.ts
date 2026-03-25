@@ -1,5 +1,4 @@
 import type {
-  Chunk,
   Document,
   Prose,
   RefinementStep,
@@ -100,7 +99,7 @@ export function parse(source: string): Document {
           overrides: currentChunk!.overrides,
           body,
           steps,
-        } as Chunk);
+        });
         inChunk = false;
         inRefinement = false;
         currentChunk = null;
