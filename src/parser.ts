@@ -52,21 +52,31 @@ function parseChunkHeader(header: string): {
   return { variant, name, overrides };
 }
 
+/** Parser mode: sum type replacing 3 booleans + nullable chunk header. */
+type ParseMode =
+  | { tag: "top" }
+  | { tag: "jdef" }
+  | {
+    tag: "chunk";
+    variant: string;
+    name: string;
+    overrides: string[];
+    lines: string[];
+    refinement: RefinementStep[] | null;
+  };
+
+/** Flush accumulated lines into the last refinement step. */
+function flushStepLines(steps: RefinementStep[], lines: string[]) {
+  steps[steps.length - 1].body = lines.join("\n");
+}
+
 /** Parse a literate J source file. */
 export function parse(source: string): Document {
   const lines = source.split("\n");
   let variants: VariantOrder | null = null;
   const sections: Section[] = [];
-
   let proseLines: string[] = [];
-  let inChunk = false;
-  let inJdef = false;
-  let currentChunk:
-    | { variant: string; name: string; overrides: string[] }
-    | null = null;
-  let chunkLines: string[] = [];
-  let inRefinement = false;
-  let refinementSteps: RefinementStep[] = [];
+  let mode: ParseMode = { tag: "top" };
 
   function flushProse() {
     const text = proseLines.join("\n");
@@ -77,96 +87,86 @@ export function parse(source: string): Document {
   }
 
   for (const line of lines) {
-    if (inChunk) {
-      if (CHUNK_CLOSE.test(line)) {
-        let steps: RefinementStep[];
-        let body: string;
-        if (inRefinement) {
-          // Flush remaining lines into the last step
-          refinementSteps[refinementSteps.length - 1].body = chunkLines.join(
-            "\n",
-          );
-          steps = refinementSteps;
-          body = steps[steps.length - 1].body;
+    switch (mode.tag) {
+      case "chunk": {
+        if (CHUNK_CLOSE.test(line)) {
+          let steps: RefinementStep[];
+          if (mode.refinement) {
+            flushStepLines(mode.refinement, mode.lines);
+            steps = mode.refinement;
+          } else {
+            steps = [{
+              reason: "",
+              isFinal: false,
+              body: mode.lines.join("\n"),
+            }];
+          }
+          sections.push({
+            kind: "chunk",
+            variant: mode.variant,
+            name: mode.name,
+            overrides: mode.overrides,
+            body: steps[steps.length - 1].body,
+            steps,
+          });
+          mode = { tag: "top" };
+        } else if (!mode.refinement && REFINE_OPEN.test(line)) {
+          mode.refinement = [{ reason: "", isFinal: false, body: "" }];
+          mode.lines = [];
+        } else if (mode.refinement && REFINE_STEP.test(line)) {
+          const m = line.match(REFINE_STEP)!;
+          flushStepLines(mode.refinement, mode.lines);
+          mode.lines = [];
+          mode.refinement.push({
+            reason: m[1].trim(),
+            isFinal: m[2] !== undefined,
+            body: "",
+          });
         } else {
-          body = chunkLines.join("\n");
-          steps = [{ reason: "", isFinal: false, body }];
+          mode.lines.push(line);
         }
-        sections.push({
-          kind: "chunk",
-          variant: currentChunk!.variant,
-          name: currentChunk!.name,
-          overrides: currentChunk!.overrides,
-          body,
-          steps,
-        });
-        inChunk = false;
-        inRefinement = false;
-        currentChunk = null;
-        chunkLines = [];
-        refinementSteps = [];
-      } else if (REFINE_OPEN.test(line) && !inRefinement) {
-        inRefinement = true;
-        refinementSteps = [{ reason: "", isFinal: false, body: "" }];
-        chunkLines = [];
-      } else if (inRefinement && REFINE_STEP.test(line)) {
-        const m = line.match(REFINE_STEP)!;
-        const reason = m[1].trim();
-        const isFinal = m[2] !== undefined;
-        // Flush accumulated lines into current (last) step
-        refinementSteps[refinementSteps.length - 1].body = chunkLines.join(
-          "\n",
-        );
-        chunkLines = [];
-        refinementSteps.push({ reason, isFinal, body: "" });
-      } else {
-        chunkLines.push(line);
+        break;
       }
-      continue;
-    }
-
-    if (inJdef) {
-      if (JDEF_CLOSE.test(line)) {
-        flushProse();
-        inJdef = false;
-      } else {
-        proseLines.push(line);
+      case "jdef": {
+        if (JDEF_CLOSE.test(line)) {
+          flushProse();
+          mode = { tag: "top" };
+        } else {
+          proseLines.push(line);
+        }
+        break;
       }
-      continue;
+      case "top": {
+        const variantMatch = line.match(VARIANT_HEADER);
+        if (variantMatch) {
+          flushProse();
+          variants = parseVariantOrder(variantMatch[1]);
+        } else {
+          const chunkMatch = line.match(CHUNK_OPEN);
+          if (chunkMatch) {
+            flushProse();
+            const h = parseChunkHeader(chunkMatch[1]);
+            mode = {
+              tag: "chunk",
+              ...h,
+              lines: [],
+              refinement: null,
+            };
+          } else if (JDEF_OPEN.test(line)) {
+            mode = { tag: "jdef" };
+          }
+        }
+        break;
+      }
     }
-
-    const variantMatch = line.match(VARIANT_HEADER);
-    if (variantMatch) {
-      flushProse();
-      variants = parseVariantOrder(variantMatch[1]);
-      continue;
-    }
-
-    const chunkMatch = line.match(CHUNK_OPEN);
-    if (chunkMatch) {
-      flushProse();
-      currentChunk = parseChunkHeader(chunkMatch[1]);
-      inChunk = true;
-      chunkLines = [];
-      continue;
-    }
-
-    if (JDEF_OPEN.test(line)) {
-      inJdef = true;
-      continue;
-    }
-
-    // All other lines (plain NB. comments, blank lines, etc.) are discarded.
   }
 
-  if (inChunk) {
+  if (mode.tag === "chunk") {
     throw new Error("Unterminated chunk at end of file");
   }
-
-  if (inJdef) {
+  if (mode.tag === "jdef") {
     throw new Error("Unterminated 0 : 0 block at end of file");
   }
-
   if (!variants) {
     throw new Error("Missing variant declaration (NB.% variants: ...)");
   }
