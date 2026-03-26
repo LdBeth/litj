@@ -16,6 +16,24 @@ deno task tangle -- --variant <name> <input.ij>
 deno task weave -- --variant <name> <input.ij>
 ```
 
+## Setup
+
+Requires Deno 1.45+. To verify your installation:
+
+```sh
+deno --version
+```
+
+See [example.ij](example.ij) for a working literate source example.
+
+## Development
+
+Use deno LSP to query definition and types.
+
+## Testing
+
+Tests are in `test/` and cover parser, variants, tangle, and weave functionality.
+
 ## Architecture
 
 The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
