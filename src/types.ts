@@ -53,3 +53,5 @@ export interface ResolvedChunk {
   body: string;
   steps: RefinementStep[];
 }
+
+export type { JNode } from "./j/ast.ts";
