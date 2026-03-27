@@ -1,10 +1,13 @@
 import type {
+  Chunk,
   Document,
   Prose,
   RefinementStep,
   Section,
   VariantOrder,
 } from "./types.ts";
+
+type ChunkHeader = Pick<Chunk, "variant" | "name" | "overrides">;
 
 const VARIANT_HEADER = /^NB\.%\s+variants:\s*(.+)$/;
 const CHUNK_OPEN = /^NB\.%\s+\[\[(.+)$/;
@@ -29,11 +32,7 @@ function parseVariantOrder(decl: string): VariantOrder {
  * Parse a chunk header like "poly.mkTyVar -base.mkTyVar".
  * Returns { variant, name, overrides }.
  */
-function parseChunkHeader(header: string): {
-  variant: string;
-  name: string;
-  overrides: string[];
-} {
+function parseChunkHeader(header: string): ChunkHeader {
   const parts = header.trim().split(/\s+/);
   const primary = parts[0];
   const dot = primary.indexOf(".");
@@ -58,9 +57,7 @@ type ParseMode =
   | { tag: "jdef" }
   | {
     tag: "chunk";
-    variant: string;
-    name: string;
-    overrides: string[];
+    header: ChunkHeader;
     lines: string[];
     refinement: RefinementStep[] | null;
   };
@@ -103,9 +100,7 @@ export function parse(source: string): Document {
           }
           sections.push({
             kind: "chunk",
-            variant: mode.variant,
-            name: mode.name,
-            overrides: mode.overrides,
+            ...mode.header,
             body: steps[steps.length - 1].body,
             steps,
           });
@@ -145,10 +140,9 @@ export function parse(source: string): Document {
           const chunkMatch = line.match(CHUNK_OPEN);
           if (chunkMatch) {
             flushProse();
-            const h = parseChunkHeader(chunkMatch[1]);
             mode = {
               tag: "chunk",
-              ...h,
+              header: parseChunkHeader(chunkMatch[1]),
               lines: [],
               refinement: null,
             };
