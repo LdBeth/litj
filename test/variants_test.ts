@@ -72,3 +72,38 @@ Deno.test("resolveChunks: preserves source order", () => {
   assertEquals(resolved[0].name, "mkTyVar");
   assertEquals(resolved[1].name, "helper");
 });
+
+Deno.test("resolveChunks: single-variant order", () => {
+  const src = `NB.% variants: base
+NB.% [[base.x
+x =: 1
+NB.% ]]
+`;
+  const doc = parse(src);
+  const resolved = resolveChunks(doc, "base");
+  assertEquals(resolved.length, 1);
+  assertEquals(resolved[0].name, "x");
+  assertEquals(resolved[0].variant, "base");
+});
+
+Deno.test("resolveChunks: unknown target returns empty", () => {
+  const doc = parse(SAMPLE);
+  const resolved = resolveChunks(doc, "nonexistent");
+  assertEquals(resolved.length, 0);
+});
+
+Deno.test("resolveChunks: duplicate variant.name keeps first", () => {
+  const src = `NB.% variants: base
+NB.% [[base.x
+first
+NB.% ]]
+NB.% [[base.x
+second
+NB.% ]]
+`;
+  const doc = parse(src);
+  const resolved = resolveChunks(doc, "base");
+  // Both have the same variant, so reduce keeps the first (not ancestor of itself)
+  assertEquals(resolved.length, 1);
+  assertEquals(resolved[0].body, "first");
+});

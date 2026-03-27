@@ -155,3 +155,48 @@ NB.% ]]
     assertEquals(c.steps[0].body, c.body);
   }
 });
+
+Deno.test("parse: chunk variant not in declared order parses without error", () => {
+  const src = `NB.% variants: base
+NB.% [[unknown.x
+x =: 1
+NB.% ]]
+`;
+  const doc = parse(src);
+  const chunks = doc.sections.filter((s) => s.kind === "chunk");
+  assertEquals(chunks.length, 1);
+  if (chunks[0].kind === "chunk") {
+    assertEquals(chunks[0].variant, "unknown");
+  }
+});
+
+Deno.test("parse: empty chunk body", () => {
+  const src = `NB.% variants: base
+NB.% [[base.empty
+NB.% ]]
+`;
+  const doc = parse(src);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.body, "");
+  }
+});
+
+Deno.test("parse: chunk.body equals last step body (invariant)", () => {
+  const src = `NB.% variants: base
+NB.% [[base.sieve
+NB.% <<
+sieve =: {{ naive }}
+NB.% :: tacify
+sieve =: {{ tacit }}
+NB.% :: reflex >>
+sieve =: {{ final }}
+NB.% ]]
+`;
+  const doc = parse(src);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.body, c.steps[c.steps.length - 1].body);
+    assertEquals(c.body, "sieve =: {{ final }}");
+  }
+});

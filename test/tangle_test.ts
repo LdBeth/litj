@@ -38,3 +38,31 @@ Deno.test("tangle: poly variant", () => {
   assertEquals(output.includes("TyVarCateg_Plain"), true);
   assertEquals(output.includes("helper"), true);
 });
+
+Deno.test("tangle: refinement chunk emits last step body", () => {
+  const src = `NB.% variants: base
+NB.% [[base.sieve
+NB.% <<
+sieve =: {{ naive }}
+NB.% :: tacify
+sieve =: {{ tacit }}
+NB.% :: reflex >>
+sieve =: {{ final }}
+NB.% ]]
+`;
+  const doc = parse(src);
+  const resolved = resolveChunks(doc, "base");
+  const output = tangle(resolved);
+  assertEquals(output, "sieve =: {{ final }}");
+});
+
+Deno.test("tangle: empty chunk body", () => {
+  const src = `NB.% variants: base
+NB.% [[base.empty
+NB.% ]]
+`;
+  const doc = parse(src);
+  const resolved = resolveChunks(doc, "base");
+  const output = tangle(resolved);
+  assertEquals(output, "");
+});

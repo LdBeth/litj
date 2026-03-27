@@ -36,7 +36,7 @@ export type Section = Prose | Chunk;
 export interface VariantOrder {
   /** All variant names in declaration order. */
   names: string[];
-  /** Maps each variant to its immediate successors (greater variants). */
+  /** Maps each variant to all its successors (transitive closure of >). */
   successors: Map<string, string[]>;
 }
 

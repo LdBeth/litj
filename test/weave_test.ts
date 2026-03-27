@@ -140,3 +140,10 @@ NB.% ]]
   assertEquals(children(chunk, "step").length, 0);
   assertEquals(textOf(children(chunk, "code")[0]), "x =: 1");
 });
+
+Deno.test("weave: overrides attribute present on override chunk", () => {
+  const root = xmlDoc(SAMPLE, "poly");
+  const chunks = children(root, "chunk");
+  const polyChunk = chunks.find((c) => c.attributes["variant"] === "poly")!;
+  assertEquals(polyChunk.attributes["overrides"], "base.mkTyVar");
+});
