@@ -32,7 +32,8 @@ Use deno LSP to query definition and types.
 
 ## Testing
 
-Tests are in `test/` and cover parser, variants, tangle, and weave functionality.
+Tests are in `test/` and cover parser, variants, tangle, and weave
+functionality.
 
 ## Architecture
 

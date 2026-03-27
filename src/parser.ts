@@ -81,7 +81,7 @@ export function parse(source: string): Document {
   function flushProse() {
     const text = proseLines.join("\n");
     if (text.trim().length > 0) {
-      sections.push({ kind: "prose", text } as Prose);
+      sections.push(<Prose> { kind: "prose", text });
     }
     proseLines = [];
   }
