@@ -38,6 +38,8 @@ Use deno LSP to query definition and types.
 Tests are in `test/` and cover parser, variants, tangle, and weave
 functionality.
 
+`test/j_lexer_test.ts` tests the J tokenizer.
+
 ## Architecture
 
 The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
@@ -57,8 +59,9 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
   file.
 - `src/weave.ts` — Emits custom XML with `<prose>`, `<chunk>`, and `<variants>`
   elements, filtering to chunks reachable at the target variant.
-- `src/j/` — J language implementation: lexer, parser, and AST for J expressions.
-  Used for syntax-aware processing of J code within literate sources.
+- `src/j/` — J language parsing implementation: lexer, parser, and AST for J
+  expressions. Used for syntax-aware processing of J code within literate
+  sources.
 
 ## Source File Format
 
