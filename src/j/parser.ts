@@ -18,7 +18,8 @@ export function parseJ(source: string): JNode {
 type Entry = { pos: Pos; node: JNode };
 
 function isEdge(pos: Pos): boolean {
-  return pos === "mark" || pos === "verb" || pos === "adv" || pos === "conj" || pos === "copula" || pos === "lpar";
+  return pos === "mark" || pos === "verb" || pos === "adv" || pos === "conj" ||
+    pos === "copula" || pos === "lpar";
 }
 
 function isNoun(pos: Pos): boolean {
@@ -44,11 +45,20 @@ function tokenToEntry(tok: Token): Entry {
     case "name":
       return { pos: "name", node: { kind: "name", id: tok.text } };
     case "prim":
-      return { pos: tok.pos, node: { kind: "prim", token: tok.text, pos: tok.pos } };
+      return {
+        pos: tok.pos,
+        node: { kind: "prim", token: tok.text, pos: tok.pos },
+      };
     case "copula":
-      return { pos: "copula", node: { kind: "prim", token: tok.text, pos: "verb" } };
+      return {
+        pos: "copula",
+        node: { kind: "prim", token: tok.text, pos: "verb" },
+      };
     case "keyword":
-      return { pos: "mark", node: { kind: "prim", token: tok.text, pos: "verb" } };
+      return {
+        pos: "mark",
+        node: { kind: "prim", token: tok.text, pos: "verb" },
+      };
     case "lpar":
       return { pos: "lpar", node: { kind: "prim", token: "(", pos: "verb" } };
     case "rpar":
@@ -85,7 +95,10 @@ function parseTokens(tokens: Token[]): JNode {
     return { kind: "seq", stmts: [] };
   }
 
-  const stack: Entry[] = [{ pos: "mark", node: { kind: "prim", token: "", pos: "verb" } }];
+  const stack: Entry[] = [{
+    pos: "mark",
+    node: { kind: "prim", token: "", pos: "verb" },
+  }];
 
   // Push tokens left-to-right
   for (let i = 0; i < tokens.length; i++) {
@@ -119,7 +132,10 @@ function reduce(stack: Entry[]): void {
       const a = stack[n - 2], b = stack[n - 1];
       if (isVN(a.pos) && b.pos === "adv") {
         stack.length = n - 2;
-        stack.push({ pos: "verb", node: { kind: "adv", verb: a.node, adv: b.node } });
+        stack.push({
+          pos: "verb",
+          node: { kind: "adv", verb: a.node, adv: b.node },
+        });
         changed = true;
         continue;
       }
@@ -130,7 +146,10 @@ function reduce(stack: Entry[]): void {
       const a = stack[n - 3], b = stack[n - 2], c = stack[n - 1];
       if (isVN(a.pos) && b.pos === "conj" && isVN(c.pos)) {
         stack.length = n - 3;
-        stack.push({ pos: "verb", node: { kind: "conj", left: a.node, con: b.node, right: c.node } });
+        stack.push({
+          pos: "verb",
+          node: { kind: "conj", left: a.node, con: b.node, right: c.node },
+        });
         changed = true;
         continue;
       }
@@ -141,10 +160,16 @@ function reduce(stack: Entry[]): void {
 
     // Fork: edge V V V → edge verb
     if (n >= 4) {
-      const a = stack[n - 4], b = stack[n - 3], c = stack[n - 2], d = stack[n - 1];
+      const a = stack[n - 4],
+        b = stack[n - 3],
+        c = stack[n - 2],
+        d = stack[n - 1];
       if (isEdge(a.pos) && isVerb(b.pos) && isVerb(c.pos) && isVerb(d.pos)) {
         stack.length = n - 3;
-        stack.push({ pos: "verb", node: { kind: "fork", f: b.node, g: c.node, h: d.node } });
+        stack.push({
+          pos: "verb",
+          node: { kind: "fork", f: b.node, g: c.node, h: d.node },
+        });
         changed = true;
         continue;
       }
@@ -152,10 +177,16 @@ function reduce(stack: Entry[]): void {
 
     // Dyad: edge N V N → edge noun
     if (n >= 4) {
-      const a = stack[n - 4], b = stack[n - 3], c = stack[n - 2], d = stack[n - 1];
+      const a = stack[n - 4],
+        b = stack[n - 3],
+        c = stack[n - 2],
+        d = stack[n - 1];
       if (isEdge(a.pos) && isNoun(b.pos) && isVerb(c.pos) && isNoun(d.pos)) {
         stack.length = n - 3;
-        stack.push({ pos: "noun", node: { kind: "dyad", verb: c.node, left: b.node, right: d.node } });
+        stack.push({
+          pos: "noun",
+          node: { kind: "dyad", verb: c.node, left: b.node, right: d.node },
+        });
         changed = true;
         continue;
       }
@@ -166,7 +197,10 @@ function reduce(stack: Entry[]): void {
       const a = stack[n - 3], b = stack[n - 2], c = stack[n - 1];
       if (isEdge(a.pos) && isVerb(b.pos) && isNoun(c.pos)) {
         stack.length = n - 2;
-        stack.push({ pos: "noun", node: { kind: "monad", verb: b.node, arg: c.node } });
+        stack.push({
+          pos: "noun",
+          node: { kind: "monad", verb: b.node, arg: c.node },
+        });
         changed = true;
         continue;
       }
@@ -215,10 +249,14 @@ function reduceAssignment(stack: Entry[]): void {
     if (n >= 3) {
       const a = stack[n - 3], b = stack[n - 2], c = stack[n - 1];
       if (a.pos === "name" && b.pos === "copula") {
-        const global = (b.node as { kind: "prim"; token: string }).token === "=:";
+        const global =
+          (b.node as { kind: "prim"; token: string }).token === "=:";
         const name = (a.node as { kind: "name"; id: string }).id;
         stack.length = n - 3;
-        stack.push({ pos: "noun", node: { kind: "assign", name, global, expr: c.node } });
+        stack.push({
+          pos: "noun",
+          node: { kind: "assign", name, global, expr: c.node },
+        });
         changed = true;
         continue;
       }
@@ -238,7 +276,10 @@ function reduceHook(stack: Entry[]): void {
       const a = stack[n - 3], b = stack[n - 2], c = stack[n - 1];
       if (isEdge(a.pos) && isVerb(b.pos) && isVerb(c.pos)) {
         stack.length = n - 2;
-        stack.push({ pos: "verb", node: { kind: "hook", f: b.node, g: c.node } });
+        stack.push({
+          pos: "verb",
+          node: { kind: "hook", f: b.node, g: c.node },
+        });
         changed = true;
         continue;
       }

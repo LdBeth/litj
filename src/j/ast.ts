@@ -1,12 +1,24 @@
 /** Part of speech for the shift-reduce parser table. */
 export type Pos =
-  | "noun" | "verb" | "adv" | "conj"
-  | "copula" | "name" | "lpar" | "rpar" | "mark";
+  | "noun"
+  | "verb"
+  | "adv"
+  | "conj"
+  | "copula"
+  | "name"
+  | "lpar"
+  | "rpar"
+  | "mark";
 
 /** Number literal sub-kind per jlin.ixml grammar. */
 export type NumKind =
-  | "integer" | "float" | "complex" | "extend"
-  | "power" | "radian" | "radix";
+  | "integer"
+  | "float"
+  | "complex"
+  | "extend"
+  | "power"
+  | "radian"
+  | "radix";
 
 /** Direct definition kind marker: )m )d )v )a )c )n )* */
 export type DirectKind = "m" | "d" | "v" | "a" | "c" | "n" | "*";
