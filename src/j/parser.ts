@@ -84,7 +84,7 @@ function tokenToEntry(tok: Token): Entry {
  *   2. Adverb:      (V|N) A           → verb
  *   3. Conjunction:  (V|N) C (V|N)    → verb
  *   4. Fork:        edge V V V        → verb
- *   5. Hook:        edge V V          → verb  (only if no further reduction)
+ *   5. Hook:        edge V V          → verb
  *   6. Assignment:  name copula expr  → noun
  *   7. Paren:       lpar X rpar       → X (with its pos)
  *
