@@ -14,6 +14,9 @@ variants from a single source.
 # CLI usage (deno task shortcuts)
 deno task tangle -- --variant <name> <input.ij>
 deno task weave -- --variant <name> <input.ij>
+
+# Run tests
+deno test
 ```
 
 ## Setup
@@ -54,6 +57,8 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
   file.
 - `src/weave.ts` — Emits custom XML with `<prose>`, `<chunk>`, and `<variants>`
   elements, filtering to chunks reachable at the target variant.
+- `src/j/` — J language implementation: lexer, parser, and AST for J expressions.
+  Used for syntax-aware processing of J code within literate sources.
 
 ## Source File Format
 

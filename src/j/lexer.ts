@@ -1,5 +1,21 @@
 import type { DirectKind, NumKind, Token } from "./ast.ts";
 
+/**
+ * J Language Lexer
+ *
+ * J number literals support:
+ * - Infinity: _ or __
+ * - Negative: leading underscore (_3 = -3)
+ * - Complex: 2j3 (real j imaginary)
+ * - Extended precision: 123x
+ * - Power notation: 2p3 (2 × 10^3), 2r3 (2 × 3), 2x3 (2 × 3)
+ * - Radian: 1.5ar3 (angle-radius), 45ad2 (angle-distance)
+ * - Radix: 2b1010 (binary), 16b1a2f (hex)
+ *
+ * Implementation uses parser combinators with equational reasoning
+ * for correctness and simplicity. See individual functions for derivations.
+ */
+
 // ── Primitive classification tables ─────────────────────────────────────────
 
 const ADVERBS = new Set([
@@ -205,9 +221,6 @@ function lexRadix(src: string, pos: number): number | null {
 /**
  * Lex suffix extensions: power (r/p/x), radian (ar/ad), radix (b...)
  *
- * Original code had separate lexRadixSuffix and lexExtendedSuffix.
- * Observation: they share structure — both check for a character and recurse.
- *
  * Derivation:
  *   lexSuffix pos = tryPower pos <|> tryRadian pos <|> tryRadix pos <|> pure pos
  * where each try returns extended position or null.
@@ -250,16 +263,13 @@ function lexSuffix(
 /**
  * Lex a complete number atom.
  *
- * Simplified via equational reasoning:
+ * Grammar:
  *   number = uptofloat ('x' | 'j' uptofloat | suffix)?
  *
- * Key insight: lexUptofloat already handles the base number parsing.
- * We only need to:
- *   1. Check for 'x' extension (only valid after pure integer)
- *   2. Check for 'j' complex extension
- *   3. Check for power/radian/radix suffixes
- *
- * Derivation eliminates duplicate parsing logic by reusing lexUptofloat.
+ * Where:
+ *   - 'x' extension is only valid after pure integers
+ *   - 'j' introduces complex numbers
+ *   - suffix handles power/radian/radix notations
  */
 function lexNumberAtom(
   src: string,
@@ -309,17 +319,19 @@ function lexNumberAtom(
 /**
  * Tokenize a J expression.
  *
- * Simplification strategy:
- * - Extract token recognizers into separate functions
- * - Use early returns to flatten nested conditionals
- * - Factor out common patterns (e.g., checking for trailing dot/colon)
+ * Uses longest-match lexing: each iteration tries token types in order
+ * until one matches, then continues from the new position.
  *
- * The original had a large while loop with many nested ifs.
- * Observation: each branch is independent — we can structure this as:
- *   while not EOF:
- *     tryWhitespace <|> tryComment <|> tryString <|> ... <|> skip
- *
- * This is the "longest match" pattern from lexer theory.
+ * Token types (in priority order):
+ * - Whitespace (skipped)
+ * - Comments (NB. stops tokenization)
+ * - String literals (single quotes, '' escapes)
+ * - Direct definitions ({{ ... }})
+ * - Parentheses
+ * - Copula (=: =.)
+ * - Numbers (see lexNumberAtom for grammar)
+ * - Names/keywords (alphanumeric with optional locale suffix)
+ * - Graphic primitives (operators, up to 3 chars)
  */
 export function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
