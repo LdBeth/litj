@@ -76,8 +76,7 @@ And report any unclosed quote or braces.
 
 ### Misc errors
 
-- `1:` `2:` ... `0:` are verb.
-- The lexer did not handle `NB.` comment.
+- `1:` `2:` ... `0:` are verbs. There are not noun.
 
 J evolves pretty fast and the primitives and syntax may change. You shall
 provide a full list of know J primitives for approval to make sure there are no

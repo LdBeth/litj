@@ -38,7 +38,9 @@ export type Token =
   | { kind: "keyword"; pos: "mark"; text: string }
   | { kind: "lpar"; pos: "lpar" }
   | { kind: "rpar"; pos: "rpar" }
-  | { kind: "direct"; pos: "mark"; defKind: DirectKind | null; body: string };
+  | { kind: "direct"; pos: "mark"; defKind: DirectKind | null; body: Token[] }
+  | { kind: "direct_noun"; pos: "noun"; body: string }
+  | { kind: "error"; message: string };
 
 /**
  * J abstract syntax tree node.

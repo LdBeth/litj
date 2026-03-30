@@ -64,13 +64,24 @@ function tokenToEntry(tok: Token): Entry {
     case "rpar":
       return { pos: "rpar", node: { kind: "prim", token: ")", pos: "verb" } };
     case "direct": {
-      // Recursively parse the body of the direct definition
-      const body = tok.body;
+      const body = tok.body.map((t) =>
+        "text" in t ? t.text : ""
+      ).join(" ");
       return {
         pos: "noun",
         node: { kind: "direct", defKind: tok.defKind, body },
       };
     }
+    case "direct_noun":
+      return {
+        pos: "noun",
+        node: { kind: "direct", defKind: "n", body: tok.body },
+      };
+    case "error":
+      return {
+        pos: "mark",
+        node: { kind: "prim", token: "<error>", pos: "verb" },
+      };
   }
 }
 

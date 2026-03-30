@@ -5,7 +5,7 @@ import type { DirectKind, NumKind, Token } from "./ast.ts";
  *
  * J number literals support:
  * - Infinity: _ or __
- * - Negative: leading underscore (_3 = -3)
+ * - Negative: leading underscore _3
  * - Complex: 2j3 (real j imaginary)
  * - Extended precision: 123x
  * - Power notation: 2p3 (2 × 10^3), 2r3 (2 × 3), 2x3 (2 × 3)
@@ -342,7 +342,7 @@ export function tokenize(source: string): Token[] {
     const c = source[i];
 
     // Whitespace
-    if (c === " " || c === "\t") {
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") {
       i++;
       continue;
     }
@@ -359,6 +359,7 @@ export function tokenize(source: string): Token[] {
     if (c === "'") {
       i++;
       let value = "";
+      let closed = false;
       while (i < len) {
         if (source[i] === "'") {
           if (i + 1 < len && source[i + 1] === "'") {
@@ -366,6 +367,7 @@ export function tokenize(source: string): Token[] {
             i += 2;
           } else {
             i++;
+            closed = true;
             break;
           }
         } else {
@@ -373,7 +375,11 @@ export function tokenize(source: string): Token[] {
           i++;
         }
       }
-      tokens.push({ kind: "string", pos: "noun", text: value });
+      if (closed) {
+        tokens.push({ kind: "string", pos: "noun", text: value });
+      } else {
+        tokens.push({ kind: "error", message: "open quote" });
+      }
       continue;
     }
 
@@ -381,7 +387,6 @@ export function tokenize(source: string): Token[] {
     if (c === "{" && i + 1 < len && source[i + 1] === "{") {
       i += 2;
       let defKind: DirectKind | null = null;
-      let bodyStart = i;
 
       // Check for )kind marker
       if (i < len && source[i] === ")") {
@@ -389,32 +394,117 @@ export function tokenize(source: string): Token[] {
         if (i < len && "mdvacn*".includes(source[i])) {
           defKind = source[i] as DirectKind;
           i++;
-          bodyStart = i;
         } else {
-          i--;
-          bodyStart = i;
+          tokens.push({
+            kind: "error",
+            message: "invalid direct definition kind",
+          });
+          // Skip to matching }} or end
+          let depth = 1;
+          while (i < len && depth > 0) {
+            if (source[i] === "{" && i + 1 < len && source[i + 1] === "{") {
+              depth++;
+              i += 2;
+            } else if (
+              source[i] === "}" && i + 1 < len && source[i + 1] === "}"
+            ) {
+              depth--;
+              i += 2;
+            } else {
+              i++;
+            }
+          }
+          continue;
         }
       }
 
-      // Scan for matching }} with nesting
-      let depth = 1;
-      let p = bodyStart;
-      while (p < len && depth > 0) {
-        if (source[p] === "{" && p + 1 < len && source[p + 1] === "{") {
-          depth++;
-          p += 2;
-        } else if (source[p] === "}" && p + 1 < len && source[p + 1] === "}") {
-          depth--;
-          if (depth === 0) break;
-          p += 2;
-        } else {
-          p++;
+      if (defKind === "n") {
+        // Noun: body is raw string until }}
+        const bodyStart = i;
+        while (i < len) {
+          if (source[i] === "}" && i + 1 < len && source[i + 1] === "}") break;
+          i++;
         }
-      }
+        if (i >= len) {
+          tokens.push({
+            kind: "error",
+            message: "unclosed direct definition",
+          });
+          continue;
+        }
+        tokens.push({
+          kind: "direct_noun",
+          pos: "noun",
+          body: source.slice(bodyStart, i),
+        });
+        i += 2;
+      } else {
+        // Non-noun: require colon after kind marker
+        if (defKind !== null) {
+          // Skip whitespace before colon
+          while (
+            i < len && (source[i] === " " || source[i] === "\t")
+          ) i++;
+          if (i >= len || source[i] !== ":") {
+            tokens.push({
+              kind: "error",
+              message: "expected ':' after direct definition kind",
+            });
+            // Skip to matching }} or end
+            let depth = 1;
+            while (i < len && depth > 0) {
+              if (
+                source[i] === "{" && i + 1 < len && source[i + 1] === "{"
+              ) {
+                depth++;
+                i += 2;
+              } else if (
+                source[i] === "}" && i + 1 < len && source[i + 1] === "}"
+              ) {
+                depth--;
+                i += 2;
+              } else {
+                i++;
+              }
+            }
+            continue;
+          }
+          i++; // skip ':'
+        }
 
-      const body = source.slice(bodyStart, p).trim();
-      i = p + 2;
-      tokens.push({ kind: "direct", pos: "mark", defKind, body });
+        // Find matching }} with nesting
+        const bodyStart = i;
+        let depth = 1;
+        let p = i;
+        while (p < len && depth > 0) {
+          if (source[p] === "{" && p + 1 < len && source[p + 1] === "{") {
+            depth++;
+            p += 2;
+          } else if (
+            source[p] === "}" && p + 1 < len && source[p + 1] === "}"
+          ) {
+            depth--;
+            if (depth === 0) break;
+            p += 2;
+          } else {
+            p++;
+          }
+        }
+
+        if (depth > 0) {
+          tokens.push({
+            kind: "error",
+            message: "unclosed direct definition",
+          });
+          i = len;
+          continue;
+        }
+
+        const bodyText = source.slice(bodyStart, p);
+        const body = tokenize(bodyText);
+        tokens.push({ kind: "direct", pos: "mark", defKind, body });
+        i = p + 2;
+      }
       continue;
     }
 
@@ -438,6 +528,17 @@ export function tokenize(source: string): Token[] {
       tokens.push({
         kind: "copula",
         pos: "copula",
+        text: source.slice(i, i + 2),
+      });
+      i += 2;
+      continue;
+    }
+
+    // Digit-colon verbs (0: through 9:)
+    if (isDigit(c) && i + 1 < len && source[i + 1] === ":") {
+      tokens.push({
+        kind: "prim",
+        pos: "verb",
         text: source.slice(i, i + 2),
       });
       i += 2;
@@ -536,8 +637,7 @@ export function tokenize(source: string): Token[] {
         const candidate = source.slice(i, i + tryLen);
 
         if (
-          tryLen === 3 &&
-          (candidate === "{::" || candidate === "}.:" || candidate === "{.:")
+          tryLen === 3 && candidate === "{::"
         ) {
           best = candidate;
           bestLen = tryLen;
@@ -570,6 +670,13 @@ export function tokenize(source: string): Token[] {
         i += bestLen;
         continue;
       }
+    }
+
+    // Standalone . and : are conjunctions (when preceded by whitespace)
+    if (c === "." || c === ":") {
+      tokens.push({ kind: "prim", pos: "conj", text: c });
+      i++;
+      continue;
     }
 
     // Skip unknown

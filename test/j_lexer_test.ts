@@ -1,8 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { tokenize } from "../src/j/lexer.ts";
 
-// ── Lexer tests ─────────────────────────────────────────────────────────────
-
 Deno.test("lex simple assignment", () => {
   const tokens = tokenize("x =. 3");
   assertEquals(tokens.length, 3);
@@ -78,13 +76,66 @@ Deno.test("lex extended integer", () => {
 });
 
 Deno.test("lex direct definition with kind", () => {
-  const tokens = tokenize("{{)m x + y }}");
+  const tokens = tokenize("{{)m: x + y }}");
   assertEquals(tokens.length, 1);
   assertEquals(tokens[0].kind, "direct");
   if (tokens[0].kind === "direct") {
     assertEquals(tokens[0].defKind, "m");
-    assertEquals(tokens[0].body, "x + y");
+    assertEquals(tokens[0].body, [
+      { kind: "name", pos: "name", text: "x" },
+      { kind: "prim", pos: "verb", text: "+" },
+      { kind: "name", pos: "name", text: "y" },
+    ]);
   }
+});
+
+Deno.test("lex direct definition without kind", () => {
+  const tokens = tokenize("{{ 1 + 2 }}");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0].kind, "direct");
+  if (tokens[0].kind === "direct") {
+    assertEquals(tokens[0].defKind, null);
+    assertEquals(tokens[0].body, [
+      { kind: "number", pos: "noun", nk: "integer", text: "1" },
+      { kind: "prim", pos: "verb", text: "+" },
+      { kind: "number", pos: "noun", nk: "integer", text: "2" },
+    ]);
+  }
+});
+
+Deno.test("lex noun direct definition", () => {
+  const tokens = tokenize("{{)n12321}}");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], {
+    kind: "direct_noun",
+    pos: "noun",
+    body: "12321",
+  });
+});
+
+Deno.test("lex noun direct definition with colon", () => {
+  const tokens = tokenize("{{)n: hello}}");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], {
+    kind: "direct_noun",
+    pos: "noun",
+    body: ": hello",
+  });
+});
+
+Deno.test("direct definition without colon is error", () => {
+  const tokens = tokenize("{{)m x + y}}");
+  assertEquals(tokens.some((t) => t.kind === "error"), true);
+});
+
+Deno.test("unclosed string is error", () => {
+  const tokens = tokenize("'''");
+  assertEquals(tokens.some((t) => t.kind === "error"), true);
+});
+
+Deno.test("unclosed direct definition is error", () => {
+  const tokens = tokenize("{{)n: 1+2");
+  assertEquals(tokens.some((t) => t.kind === "error"), true);
 });
 
 Deno.test("lex primitives", () => {
@@ -93,6 +144,16 @@ Deno.test("lex primitives", () => {
   assertEquals(tokens[0], { kind: "prim", pos: "verb", text: "+" });
   assertEquals(tokens[1], { kind: "prim", pos: "adv", text: "/" });
   assertEquals(tokens[2], { kind: "name", pos: "name", text: "y" });
+});
+
+Deno.test("lex verb", () => {
+  const tokens = tokenize("0:");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], {
+    kind: "prim",
+    pos: "verb",
+    text: "0:",
+  });
 });
 
 Deno.test("lex conjunction", () => {
