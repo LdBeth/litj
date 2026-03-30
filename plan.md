@@ -89,8 +89,8 @@ Create the parser for tacit function is feasible and should not be difficult.
 When you encounter difficulty, you should reference J itself for parsing
 behavior.
 
-The command for jconsole is `jc`. The `trace` utility can be used to
-provide insights on parsing behavior.
+The command for jconsole is `jc`. The `trace` utility can be used to provide
+insights on parsing behavior.
 
 ```bash
 jc -js "require'trace'" 'trace {{)n (2+1)+(2+#) }}' < /dev/null

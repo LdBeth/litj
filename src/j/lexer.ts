@@ -52,7 +52,7 @@ const CONJUNCTIONS = new Set([
   "!.",
 ]);
 
-const GRAPHICS = new Set('=<>+*-%$~|,;#!/\\[]`@&?^"'.split(""));
+const GRAPHICS = new Set('=<>+*-%$~|,;#!/\\[]`@&?^"{}'.split(""));
 
 const CONTROL_WORDS = new Set([
   "assert.",
@@ -91,7 +91,12 @@ function isDigit(c: string): boolean {
 }
 
 function isGraphic(c: string): boolean {
-  return GRAPHICS.has(c) || c === "{" || c === "}";
+  return GRAPHICS.has(c);
+}
+
+/** Classify a primitive token by part of speech */
+function classifyPrim(text: string): "verb" | "adv" | "conj" {
+  return ADVERBS.has(text) ? "adv" : CONJUNCTIONS.has(text) ? "conj" : "verb";
 }
 
 // ── Parser combinators for number lexing ────────────────────────────────────
@@ -112,23 +117,14 @@ function tryChar(src: string, pos: number, c: string): number {
   return pos < src.length && src[pos] === c ? pos + 1 : pos;
 }
 
-/** Check if character at pos satisfies predicate */
-function peekChar(
-  src: string,
-  pos: number,
-  pred: (c: string) => boolean,
-): boolean {
-  return pos < src.length && pred(src[pos]);
-}
-
 /** Lex digits with optional leading underscore. Returns null if no digits found. */
 function lexDigits(src: string, pos: number): number | null {
   const p = tryChar(src, pos, "_");
   const end = scanWhile(src, p, isDigit);
-  // Special case: bare _ or __ (infinity)
   if (end === p) {
+    // bare _ or __ (infinity)
     if (p === pos + 1 && src[pos] === "_") {
-      return tryChar(src, p, "_"); // __ or _
+      return tryChar(src, p, "_");
     }
     return null;
   }
@@ -143,73 +139,85 @@ function isNumTerminator(src: string, pos: number): boolean {
     isGraphic(c) || c === "'" || "jrpxba".includes(c);
 }
 
-// ── Simplified number lexing ────────────────────────────────────────────────
+// ── Number lexing ───────────────────────────────────────────────────────────
 
 /**
  * Lex uptofloat: _? digits (. digits?)? (e _? digits)?
  *
- * Derivation:
- *   lexUptofloat = optional('_') >> digits >> optional(decimal) >> optional(exponent)
- * where
- *   decimal = '.' >> optional(digits)  -- when followed by valid terminator
- *   exponent = 'e' >> optional('_') >> digits
+ * Returns { end, isInt } where isInt indicates no decimal point, exponent,
+ * or bare infinity was parsed — i.e., the result is a pure integer.
+ *
+ * Derivation (compute-once principle):
+ *   The caller (lexNumberAtom) previously re-scanned the parsed text to check
+ *   for '.' and 'e'. Since lexUptofloat already branches on these characters,
+ *   we carry the flag through instead of re-deriving it:
+ *     slice(pos, end) >>= \text -> not (includes "." text || includes "e" text)
+ *   = { lexUptofloat already branches on '.' and 'e' }
+ *     carry isInt flag, set false when entering decimal/exponent branches
  */
-function lexUptofloat(src: string, pos: number): number | null {
-  let p = pos;
-
-  // Required digits (or bare _ / __ for infinity)
-  // lexDigits handles optional leading underscore internally
-  const afterDigits = lexDigits(src, p);
+function lexUptofloat(
+  src: string,
+  pos: number,
+): { end: number; isInt: boolean } | null {
+  const afterDigits = lexDigits(src, pos);
   if (afterDigits === null) return null;
-  p = afterDigits;
+  let p = afterDigits;
+  let isInt = true;
+
+  // bare _ or __ → float (infinity), not integer
+  if (
+    p <= pos + 2 && src[pos] === "_" &&
+    (p === pos + 1 || (p === pos + 2 && src[pos + 1] === "_"))
+  ) {
+    isInt = false;
+  }
 
   // Optional decimal point + digits
-  if (peekChar(src, p, (c) => c === ".")) {
+  if (p < src.length && src[p] === ".") {
     const next = p + 1 < src.length ? src[p + 1] : "";
-    // Decimal is valid if followed by digit, 'e', or terminator
     if (isDigit(next) || next === "e" || isNumTerminator(src, p + 1)) {
       p++;
       p = scanWhile(src, p, isDigit);
+      isInt = false;
     }
   }
 
   // Optional exponent
-  if (peekChar(src, p, (c) => c === "e")) {
+  if (p < src.length && src[p] === "e") {
     p++;
     p = tryChar(src, p, "_");
     const expEnd = scanWhile(src, p, isDigit);
-    if (expEnd === p) return null; // 'e' without digits is invalid
+    if (expEnd === p) return null; // 'e' without digits
     p = expEnd;
+    isInt = false;
   }
 
-  return p;
+  return { end: p, isInt };
 }
 
 /**
  * Lex uptocomplex: uptofloat (j uptofloat)?
  *
  * Derivation:
- *   lexUptocomplex = lexUptofloat >>= \p ->
- *                    optional('j' >> lexUptofloat) >>= \q ->
- *                    pure (p or q)
- * Simplified: try complex extension, fallback to float position
+ *   lexUptocomplex = lexUptofloat >>= \r ->
+ *                    optional('j' >> lexUptofloat) >>= \ext ->
+ *                    pure (ext?.end ?? r.end)
  */
 function lexUptocomplex(src: string, pos: number): number | null {
-  const floatEnd = lexUptofloat(src, pos);
-  if (floatEnd === null) return null;
+  const r = lexUptofloat(src, pos);
+  if (r === null) return null;
 
-  // Try complex extension: j uptofloat
-  if (peekChar(src, floatEnd, (c) => c === "j")) {
-    const complexEnd = lexUptofloat(src, floatEnd + 1);
-    if (complexEnd !== null) return complexEnd;
+  if (r.end < src.length && src[r.end] === "j") {
+    const ext = lexUptofloat(src, r.end + 1);
+    if (ext !== null) return ext.end;
   }
 
-  return floatEnd;
+  return r.end;
 }
 
 /** Helper: lex radix suffix 'b' followed by alphanumeric */
 function lexRadix(src: string, pos: number): number | null {
-  if (!peekChar(src, pos, (c) => c === "b")) return null;
+  if (pos >= src.length || src[pos] !== "b") return null;
   const end = scanWhile(
     src,
     pos + 1,
@@ -222,22 +230,26 @@ function lexRadix(src: string, pos: number): number | null {
  * Lex suffix extensions: power (r/p/x), radian (ar/ad), radix (b...)
  *
  * Derivation:
- *   lexSuffix pos = tryPower pos <|> tryRadian pos <|> tryRadix pos <|> pure pos
- * where each try returns extended position or null.
+ *   lexSuffix pos = tryPower pos <|> tryRadian pos <|> tryRadix pos
+ *
+ *   withRadix abstracts the repeated pattern:
+ *     let r = lexRadix(end); if (r) {nk:"radix",end:r} else {nk,end}
+ *   = { factor over nk, end }
+ *     withRadix(nk, end) = lexRadix(end) >>= \r -> pure {nk:"radix",r} <|> pure {nk,end}
  */
 function lexSuffix(
   src: string,
   pos: number,
 ): { nk: NumKind; end: number } | null {
+  const withRadix = (nk: NumKind, end: number) => {
+    const r = lexRadix(src, end);
+    return r !== null ? { nk: "radix" as NumKind, end: r } : { nk, end };
+  };
+
   // Power: r, p, x
-  if (peekChar(src, pos, (c) => "rpx".includes(c))) {
+  if (pos < src.length && "rpx".includes(src[pos])) {
     const rest = lexUptocomplex(src, pos + 1);
-    if (rest !== null) {
-      // Check for radix after power
-      const radix = lexRadix(src, rest);
-      if (radix !== null) return { nk: "radix", end: radix };
-      return { nk: "power", end: rest };
-    }
+    if (rest !== null) return withRadix("power", rest);
   }
 
   // Radian: ar, ad
@@ -246,11 +258,7 @@ function lexSuffix(
     (src[pos + 1] === "r" || src[pos + 1] === "d")
   ) {
     const rest = lexUptofloat(src, pos + 2);
-    if (rest !== null) {
-      const radix = lexRadix(src, rest);
-      if (radix !== null) return { nk: "radix", end: radix };
-      return { nk: "radian", end: rest };
-    }
+    if (rest !== null) return withRadix("radian", rest.end);
   }
 
   // Radix: b followed by alphanumeric
@@ -266,52 +274,70 @@ function lexSuffix(
  * Grammar:
  *   number = uptofloat ('x' | 'j' uptofloat | suffix)?
  *
- * Where:
- *   - 'x' extension is only valid after pure integers
- *   - 'j' introduces complex numbers
- *   - suffix handles power/radian/radix notations
+ * The isInt flag from lexUptofloat eliminates re-scanning the parsed text.
+ *
+ * Derivation:
+ *   lexNumberAtom = lexUptofloat >>= \(end, isInt) ->
+ *     tryExtend isInt end
+ *     <|> tryComplex end >>= trySuffix
+ *     <|> trySuffix end
+ *     <|> pure (baseKind isInt, end)
  */
 function lexNumberAtom(
   src: string,
   pos: number,
 ): { nk: NumKind; end: number } | null {
-  // First, try to parse as uptofloat
-  const uptoFloatEnd = lexUptofloat(src, pos);
-  if (uptoFloatEnd === null) return null;
+  const r = lexUptofloat(src, pos);
+  if (r === null) return null;
 
-  // Determine if we parsed a pure integer (no decimal or exponent)
-  // Bare _ and __ are floats (infinity)
-  const text = src.slice(pos, uptoFloatEnd);
-  const isPureInteger = !text.includes(".") && !text.includes("e") &&
-    text !== "_" && text !== "__";
-
-  // Check for 'x' (extended) — only after pure integer
+  // Extended precision: only after pure integer, not followed by alpha
   if (
-    isPureInteger &&
-    peekChar(src, uptoFloatEnd, (c) => c === "x") &&
-    !peekChar(src, uptoFloatEnd + 1, isAlpha)
+    r.isInt &&
+    r.end < src.length && src[r.end] === "x" &&
+    !(r.end + 1 < src.length && isAlpha(src[r.end + 1]))
   ) {
-    return { nk: "extend", end: uptoFloatEnd + 1 };
+    return { nk: "extend", end: r.end + 1 };
   }
 
-  const baseKind: NumKind = isPureInteger ? "integer" : "float";
-
   // Complex: j uptofloat
-  if (peekChar(src, uptoFloatEnd, (c) => c === "j")) {
-    const complexEnd = lexUptofloat(src, uptoFloatEnd + 1);
-    if (complexEnd !== null) {
-      // Check for suffix after complex
-      const suffix = lexSuffix(src, complexEnd);
+  if (r.end < src.length && src[r.end] === "j") {
+    const ext = lexUptofloat(src, r.end + 1);
+    if (ext !== null) {
+      const suffix = lexSuffix(src, ext.end);
       if (suffix) return suffix;
-      return { nk: "complex", end: complexEnd };
+      return { nk: "complex", end: ext.end };
     }
   }
 
-  // Check for power/radian/radix suffixes
-  const suffix = lexSuffix(src, uptoFloatEnd);
+  // Power/radian/radix suffixes
+  const suffix = lexSuffix(src, r.end);
   if (suffix) return suffix;
 
-  return { nk: baseKind, end: uptoFloatEnd };
+  return { nk: r.isInt ? "integer" : "float", end: r.end };
+}
+
+// ── Direct definition helpers ───────────────────────────────────────────────
+
+/**
+ * Skip to matching }} respecting nesting.
+ * Returns position of the first } in closing }}, or src.length if unmatched.
+ */
+function skipToMatchingBraces(src: string, pos: number): number {
+  let depth = 1;
+  let p = pos;
+  while (p < src.length && depth > 0) {
+    if (src[p] === "{" && p + 1 < src.length && src[p + 1] === "{") {
+      depth++;
+      p += 2;
+    } else if (src[p] === "}" && p + 1 < src.length && src[p + 1] === "}") {
+      depth--;
+      if (depth === 0) return p;
+      p += 2;
+    } else {
+      p++;
+    }
+  }
+  return src.length;
 }
 
 // ── Main tokenizer ──────────────────────────────────────────────────────────
@@ -321,17 +347,6 @@ function lexNumberAtom(
  *
  * Uses longest-match lexing: each iteration tries token types in order
  * until one matches, then continues from the new position.
- *
- * Token types (in priority order):
- * - Whitespace (skipped)
- * - Comments (NB. stops tokenization)
- * - String literals (single quotes, '' escapes)
- * - Direct definitions ({{ ... }})
- * - Parentheses
- * - Copula (=: =.)
- * - Numbers (see lexNumberAtom for grammar)
- * - Names/keywords (alphanumeric with optional locale suffix)
- * - Graphic primitives (operators, up to 3 chars)
  */
 export function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -341,13 +356,12 @@ export function tokenize(source: string): Token[] {
   while (i < len) {
     const c = source[i];
 
-    // Whitespace
     if (c === " " || c === "\t" || c === "\n" || c === "\r") {
       i++;
       continue;
     }
 
-    // Comment — stop tokenizing
+    // NB. comment — stop tokenizing
     if (
       source.startsWith("NB.", i) &&
       (i + 3 >= len || !isAlpha(source[i + 3]))
@@ -375,11 +389,11 @@ export function tokenize(source: string): Token[] {
           i++;
         }
       }
-      if (closed) {
-        tokens.push({ kind: "string", pos: "noun", text: value });
-      } else {
-        tokens.push({ kind: "error", message: "open quote" });
-      }
+      tokens.push(
+        closed
+          ? { kind: "string", pos: "noun", text: value }
+          : { kind: "error", message: "open quote" },
+      );
       continue;
     }
 
@@ -399,21 +413,8 @@ export function tokenize(source: string): Token[] {
             kind: "error",
             message: "invalid direct definition kind",
           });
-          // Skip to matching }} or end
-          let depth = 1;
-          while (i < len && depth > 0) {
-            if (source[i] === "{" && i + 1 < len && source[i + 1] === "{") {
-              depth++;
-              i += 2;
-            } else if (
-              source[i] === "}" && i + 1 < len && source[i + 1] === "}"
-            ) {
-              depth--;
-              i += 2;
-            } else {
-              i++;
-            }
-          }
+          i = skipToMatchingBraces(source, i);
+          if (i < len) i += 2;
           continue;
         }
       }
@@ -441,7 +442,6 @@ export function tokenize(source: string): Token[] {
       } else {
         // Non-noun: require colon after kind marker
         if (defKind !== null) {
-          // Skip whitespace before colon
           while (
             i < len && (source[i] === " " || source[i] === "\t")
           ) i++;
@@ -450,48 +450,17 @@ export function tokenize(source: string): Token[] {
               kind: "error",
               message: "expected ':' after direct definition kind",
             });
-            // Skip to matching }} or end
-            let depth = 1;
-            while (i < len && depth > 0) {
-              if (
-                source[i] === "{" && i + 1 < len && source[i + 1] === "{"
-              ) {
-                depth++;
-                i += 2;
-              } else if (
-                source[i] === "}" && i + 1 < len && source[i + 1] === "}"
-              ) {
-                depth--;
-                i += 2;
-              } else {
-                i++;
-              }
-            }
+            i = skipToMatchingBraces(source, i);
+            if (i < len) i += 2;
             continue;
           }
-          i++; // skip ':'
+          i++;
         }
 
-        // Find matching }} with nesting
         const bodyStart = i;
-        let depth = 1;
-        let p = i;
-        while (p < len && depth > 0) {
-          if (source[p] === "{" && p + 1 < len && source[p + 1] === "{") {
-            depth++;
-            p += 2;
-          } else if (
-            source[p] === "}" && p + 1 < len && source[p + 1] === "}"
-          ) {
-            depth--;
-            if (depth === 0) break;
-            p += 2;
-          } else {
-            p++;
-          }
-        }
+        const p = skipToMatchingBraces(source, i);
 
-        if (depth > 0) {
+        if (p >= len) {
           tokens.push({
             kind: "error",
             message: "unclosed direct definition",
@@ -500,8 +469,7 @@ export function tokenize(source: string): Token[] {
           continue;
         }
 
-        const bodyText = source.slice(bodyStart, p);
-        const body = tokenize(bodyText);
+        const body = tokenize(source.slice(bodyStart, p));
         tokens.push({ kind: "direct", pos: "mark", defKind, body });
         i = p + 2;
       }
@@ -573,23 +541,20 @@ export function tokenize(source: string): Token[] {
         j++;
       }
 
-      // Check for trailing dot or colon
       if (j < len && (source[j] === "." || source[j] === ":")) {
         const word = source.slice(i, j + 1);
 
         // NB. comment
-        if (source.slice(i, j) === "NB" && source[j] === ".") {
+        if (
+          j - i === 2 && source[i] === "N" && source[i + 1] === "B" &&
+          source[j] === "."
+        ) {
           break;
         }
 
         // Single letter + dot/colon = primitive
         if (j - i === 1) {
-          const pos = ADVERBS.has(word)
-            ? "adv" as const
-            : CONJUNCTIONS.has(word)
-            ? "conj" as const
-            : "verb" as const;
-          tokens.push({ kind: "prim", pos, text: word });
+          tokens.push({ kind: "prim", pos: classifyPrim(word), text: word });
           i = j + 1;
           continue;
         }
@@ -626,60 +591,46 @@ export function tokenize(source: string): Token[] {
       continue;
     }
 
-    // Graphic primitives
-    if (isGraphic(c) || c === "{" || c === "}") {
-      // Try longest match (up to 3 chars)
-      let best = "";
-      let bestLen = 0;
-
-      for (let tryLen = 3; tryLen >= 1; tryLen--) {
-        if (i + tryLen > len) continue;
-        const candidate = source.slice(i, i + tryLen);
-
-        if (
-          tryLen === 3 && candidate === "{::"
-        ) {
-          best = candidate;
-          bestLen = tryLen;
-          break;
+    // Graphic primitives — flat if-chain derived from:
+    //   longest match = try3 <|> try2 <|> try1
+    //
+    // The original loop `for (tryLen = 3; tryLen >= 1; tryLen--)` had
+    // hardcoded per-length branches that never generalized. Unrolling:
+    //   tryLen=3: only matches {::
+    //   tryLen=2: c2 === "." || c2 === ":"
+    //                (the original `|| (c==="`" && c2===":")` was dead:
+    //                 A || (B && A) = A by absorption)
+    //   tryLen=1: always matches
+    if (isGraphic(c)) {
+      let text: string;
+      if (
+        c === "{" && i + 2 < len &&
+        source[i + 1] === ":" && source[i + 2] === ":"
+      ) {
+        text = "{::";
+      } else if (i + 1 < len) {
+        const c2 = source[i + 1];
+        if (c2 === "." || c2 === ":") {
+          text = source.slice(i, i + 2);
+        } else {
+          text = c;
         }
-
-        if (tryLen === 2) {
-          const c2 = candidate[1];
-          if (c2 === "." || c2 === ":" || (c === "`" && c2 === ":")) {
-            best = candidate;
-            bestLen = tryLen;
-            break;
-          }
-        }
-
-        if (tryLen === 1) {
-          best = candidate;
-          bestLen = tryLen;
-          break;
-        }
+      } else {
+        text = c;
       }
 
-      if (bestLen > 0) {
-        const pos = ADVERBS.has(best)
-          ? "adv" as const
-          : CONJUNCTIONS.has(best)
-          ? "conj" as const
-          : "verb" as const;
-        tokens.push({ kind: "prim", pos, text: best });
-        i += bestLen;
-        continue;
-      }
+      tokens.push({ kind: "prim", pos: classifyPrim(text), text });
+      i += text.length;
+      continue;
     }
 
-    // Standalone . and : are conjunctions (when preceded by whitespace)
+    // Standalone . and : (conjunctions when preceded by whitespace)
     if (c === "." || c === ":") {
       tokens.push({ kind: "prim", pos: "conj", text: c });
       i++;
       continue;
     }
 
-    // Skip unknown
     i++;
   }
 

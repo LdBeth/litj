@@ -64,9 +64,7 @@ function tokenToEntry(tok: Token): Entry {
     case "rpar":
       return { pos: "rpar", node: { kind: "prim", token: ")", pos: "verb" } };
     case "direct": {
-      const body = tok.body.map((t) =>
-        "text" in t ? t.text : ""
-      ).join(" ");
+      const body = tok.body.map((t) => "text" in t ? t.text : "").join(" ");
       return {
         pos: "noun",
         node: { kind: "direct", defKind: tok.defKind, body },

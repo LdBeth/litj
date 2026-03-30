@@ -36,17 +36,16 @@ Use deno LSP to query definition and types.
 ### Workflow for J Lexer/Parser Changes
 
 `plan.md` contains the task spec. Follow its workflow: amend types and tests
-first, ask for approval, then implement. Changing `src/j/ast.ts` Token type
-will break `src/j/parser.ts` — update both.
+first, ask for approval, then implement. Changing `src/j/ast.ts` Token type will
+break `src/j/parser.ts` — update both.
 
 ## Testing
 
 Tests are in `test/` and cover parser, variants, tangle, and weave
 functionality.
 
-`test/j_lexer_test.ts` tests the J tokenizer.
-`test/j_parser_test.ts` tests the J parser and includes integration tests
-against `clz.ijs` lines.
+`test/j_lexer_test.ts` tests the J tokenizer. `test/j_parser_test.ts` tests the
+J parser and includes integration tests against `clz.ijs` lines.
 
 ## Architecture
 
