@@ -57,9 +57,8 @@ Deno.test("lex infinity", () => {
   const tokens = tokenize("_");
   assertEquals(tokens.length, 1);
   assertEquals(tokens[0], {
-    kind: "number",
+    kind: "prim",
     pos: "noun",
-    nk: "float",
     text: "_",
   });
 });
@@ -186,4 +185,76 @@ Deno.test("lex backtick conjunction", () => {
   const tokens = tokenize("f`g");
   assertEquals(tokens.length, 3);
   assertEquals(tokens[1], { kind: "prim", pos: "conj", text: "`" });
+});
+
+// ── Core tokenization: dot/colon suffix consumed as part of token ──────────
+
+Deno.test("graphic + trailing dots/colons is one token", () => {
+  // J's ;: confirms: +.:.:: is ONE token
+  const tokens = tokenize("+.:.:: y");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "+.:.::" });
+});
+
+Deno.test("/.. is one token", () => {
+  // /. is a known adverb, but /.. is not — one unknown token
+  const tokens = tokenize("/..y");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], { kind: "prim", pos: "adv", text: "/.." });
+});
+
+Deno.test("alpha + trailing dots/colons is one token", () => {
+  const tokens = tokenize("a:::.....::y");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], {
+    kind: "unknown",
+    pos: "mark",
+    text: "a:::.....::",
+  });
+});
+
+Deno.test("multi-letter alpha + dot/colon suffix is one token", () => {
+  const tokens = tokenize("abc.: y");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "abc.:" });
+});
+
+Deno.test("= with extra trailing dots is one unknown token", () => {
+  // =. and =: are copulas, but =.. is not — one unknown token
+  const tokens = tokenize("=..");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "=.." });
+});
+
+Deno.test("dot-start token consumes trailing dots/colons", () => {
+  const tokens = tokenize(".:.y");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: ".:." });
+});
+
+Deno.test("digit-start token with dot/colon suffix", () => {
+  // 3:. is one token under rule 3 (digit, then trailing :.)
+  const tokens = tokenize("3:.");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "3:." });
+});
+
+Deno.test("underscore-start with dot/colon suffix", () => {
+  const tokens = tokenize("_.:y");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "_.:" });
+});
+
+Deno.test("for_abc. is a keyword", () => {
+  const tokens = tokenize("for_abc. do. end.");
+  const keywords = tokens.filter((t) => t.kind === "keyword");
+  assertEquals(keywords.length, 3);
+  assertEquals(keywords[0], { kind: "keyword", pos: "mark", text: "for_abc." });
+});
+
+Deno.test("digit-start with alpha body is one token", () => {
+  // 12abc is one token under rule 3
+  const tokens = tokenize("12abc");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "12abc" });
 });

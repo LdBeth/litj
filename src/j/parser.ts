@@ -80,6 +80,11 @@ function tokenToEntry(tok: Token): Entry {
         pos: "mark",
         node: { kind: "prim", token: "<error>", pos: "verb" },
       };
+    case "unknown":
+      return {
+        pos: "mark",
+        node: { kind: "prim", token: tok.text, pos: "verb" },
+      };
   }
 }
 

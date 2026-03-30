@@ -17,12 +17,110 @@ import type { DirectKind, NumKind, Token } from "./ast.ts";
  */
 
 // ── Primitive classification tables ─────────────────────────────────────────
+const NOUNS = new Set([
+  "_",
+  "__",
+  "_.",
+  "a.",
+  "a:",
+]);
+
+const VERBS = new Set([
+  "=",
+  "<",
+  ">",
+  "+",
+  "*",
+  "-",
+  "%",
+  "$",
+  "|",
+  ",",
+  ";",
+  "#",
+  "!",
+  "[",
+  "]",
+  "{",
+  "}",
+  "?",
+  "^",
+  '"',
+  "<.",
+  "<:",
+  ">.",
+  ">:",
+  "+.",
+  "+:",
+  "*.",
+  "*:",
+  "-.",
+  "-:",
+  "%.",
+  "%:",
+  "$.",
+  "$:",
+  "|.",
+  "|:",
+  ",.",
+  ",:",
+  ";:",
+  "#.",
+  "#:",
+  "!.",
+  "!:",
+  "[:",
+  "{.",
+  "{:",
+  "{::",
+  "}.",
+  "}:",
+  "?.",
+  "^.",
+  '".',
+  '":',
+  "~.",
+  "~:",
+  "/:",
+  "\\:",
+  "i.",
+  "i:",
+  "j.",
+  "o.",
+  "p.",
+  "p:",
+  "q:",
+  "r.",
+  "s:",
+  "u:",
+  "x:",
+  "A.",
+  "C.",
+  "E.",
+  "I.",
+  "L.",
+  "L:",
+  "0:",
+  "1:",
+  "2:",
+  "3:",
+  "4:",
+  "5:",
+  "6:",
+  "7:",
+  "8:",
+  "9:",
+  "e.",
+  "t.",
+  "t:",
+]);
 
 const ADVERBS = new Set([
   "~",
   "/",
   "\\",
   "/.",
+  "/..",
   "\\.",
   "}",
   "b.",
@@ -38,18 +136,25 @@ const CONJUNCTIONS = new Set([
   "&.",
   "&",
   "@",
-  "!:",
-  '":',
   "`:",
   "S:",
-  "L:",
   "H.",
   "T.",
   "D:",
+  "D.",
   "d.",
   ";.",
   "`",
-  "!.",
+  "F.",
+  "F..",
+  "F.:",
+  "F:.",
+  "F::",
+]);
+
+const COPULAS = new Set([
+  "=.",
+  "=:",
 ]);
 
 const GRAPHICS = new Set('=<>+*-%$~|,;#!/\\[]`@&?^"{}'.split(""));
@@ -63,11 +168,8 @@ const CONTROL_WORDS = new Set([
   "end.",
   "fcase.",
   "for.",
-  "for_.",
   "if.",
   "do.",
-  "goto_.",
-  "label_.",
   "return.",
   "select.",
   "case.",
@@ -79,6 +181,12 @@ const CONTROL_WORDS = new Set([
   "while.",
   "whilst.",
 ]);
+
+const KEYWORD_PATTERNS = [
+  /^for_\w*\.$/,
+  /^goto_\w*\.$/,
+  /^label_\w*\.$/,
+];
 
 // ── Character classification ────────────────────────────────────────────────
 
@@ -95,8 +203,13 @@ function isGraphic(c: string): boolean {
 }
 
 /** Classify a primitive token by part of speech */
-function classifyPrim(text: string): "verb" | "adv" | "conj" {
-  return ADVERBS.has(text) ? "adv" : CONJUNCTIONS.has(text) ? "conj" : "verb";
+function classifyPrim(text: string): Token {
+  if (COPULAS.has(text)) return { kind: "copula", pos: "copula", text };
+  if (NOUNS.has(text)) return { kind: "prim", pos: "noun", text };
+  if (ADVERBS.has(text)) return { kind: "prim", pos: "adv", text };
+  if (CONJUNCTIONS.has(text)) return { kind: "prim", pos: "conj", text };
+  if (VERBS.has(text)) return { kind: "prim", pos: "verb", text };
+  return { kind: "unknown", pos: "mark", text };
 }
 
 // ── Parser combinators for number lexing ────────────────────────────────────
@@ -123,7 +236,7 @@ function lexDigits(src: string, pos: number): number | null {
   const end = scanWhile(src, p, isDigit);
   if (end === p) {
     // bare _ or __ (infinity)
-    if (p === pos + 1 && src[pos] === "_") {
+    if (p > pos) {
       return tryChar(src, p, "_");
     }
     return null;
@@ -166,7 +279,7 @@ function lexUptofloat(
 
   // bare _ or __ → float (infinity), not integer
   if (
-    p <= pos + 2 && src[pos] === "_" &&
+    src[pos] === "_" &&
     (p === pos + 1 || (p === pos + 2 && src[pos + 1] === "_"))
   ) {
     isInt = false;
@@ -340,13 +453,45 @@ function skipToMatchingBraces(src: string, pos: number): number {
   return src.length;
 }
 
+/** Consume trailing . and : characters */
+function scanDotColon(src: string, pos: number): number {
+  return scanWhile(src, pos, (c) => c === "." || c === ":");
+}
+
+/** Classify an alpha-start token */
+function classifyAlpha(text: string): Token {
+  if (CONTROL_WORDS.has(text)) return { kind: "keyword", pos: "mark", text };
+  if (KEYWORD_PATTERNS.some((p) => p.test(text))) {
+    return { kind: "keyword", pos: "mark", text };
+  }
+  return classifyPrim(text);
+}
+
+/** Classify a digit/underscore-start token */
+function classifyNumeric(src: string, pos: number, end: number): Token {
+  const text = src.slice(pos, end);
+  // Try known primitives first
+  const prim = classifyPrim(text);
+  if (prim.kind !== "unknown") return prim;
+  // Try parsing as a number literal
+  const atom = lexNumberAtom(src, pos);
+  if (atom && atom.end === end) {
+    return { kind: "number", pos: "noun", nk: atom.nk, text };
+  }
+  return { kind: "unknown", pos: "mark", text };
+}
+
 // ── Main tokenizer ──────────────────────────────────────────────────────────
 
 /**
  * Tokenize a J expression.
  *
- * Uses longest-match lexing: each iteration tries token types in order
- * until one matches, then continues from the new position.
+ * Three core tokenization rules for non-string, non-direct-definition tokens:
+ *   Rule 1 (graphic-start): single GRAPHIC or : or ., then any number of . and :
+ *   Rule 2 (alpha-start): alpha, then [a-zA-Z0-9_]*, then any number of . and :
+ *   Rule 3 (digit/underscore-start): digit or _, then [a-zA-Z0-9_.]*, then any number of . and :
+ *
+ * After forming the raw token text, classify by lookup in primitive tables.
  */
 export function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -488,146 +633,62 @@ export function tokenize(source: string): Token[] {
       continue;
     }
 
-    // Copula
-    if (
-      c === "=" && i + 1 < len &&
-      (source[i + 1] === ":" || source[i + 1] === ".")
-    ) {
-      tokens.push({
-        kind: "copula",
-        pos: "copula",
-        text: source.slice(i, i + 2),
-      });
-      i += 2;
-      continue;
-    }
-
-    // Digit-colon verbs (0: through 9:)
-    if (isDigit(c) && i + 1 < len && source[i + 1] === ":") {
-      tokens.push({
-        kind: "prim",
-        pos: "verb",
-        text: source.slice(i, i + 2),
-      });
-      i += 2;
-      continue;
-    }
-
-    // Number
-    if (
-      isDigit(c) || (c === "_" && (i + 1 >= len || isDigit(source[i + 1]) ||
-        source[i + 1] === "_" || source[i + 1] === "."))
-    ) {
-      const atom = lexNumberAtom(source, i);
-      if (atom) {
-        tokens.push({
-          kind: "number",
-          pos: "noun",
-          nk: atom.nk,
-          text: source.slice(i, atom.end),
-        });
-        i = atom.end;
-        continue;
-      }
-    }
-
-    // Name / keyword / primitive with dot/colon
+    // Rule 2: Alpha-start token
     if (isAlpha(c)) {
-      let j = i + 1;
-      while (
-        j < len &&
-        (isAlpha(source[j]) || isDigit(source[j]) || source[j] === "_")
-      ) {
-        j++;
-      }
-
-      if (j < len && (source[j] === "." || source[j] === ":")) {
-        const word = source.slice(i, j + 1);
-
-        // NB. comment
-        if (
-          j - i === 2 && source[i] === "N" && source[i + 1] === "B" &&
-          source[j] === "."
-        ) {
-          break;
-        }
-
-        // Single letter + dot/colon = primitive
-        if (j - i === 1) {
-          tokens.push({ kind: "prim", pos: classifyPrim(word), text: word });
-          i = j + 1;
-          continue;
-        }
-
-        // Multi-letter + dot = control word or keyword
-        if (CONTROL_WORDS.has(word) || (source[i] >= "a" && source[i] <= "z")) {
-          tokens.push({ kind: "keyword", pos: "mark", text: word });
-          i = j + 1;
-          continue;
-        }
-      }
-
-      // Name with optional locale suffix
-      let nameEnd = j;
-      if (nameEnd < len && source[nameEnd] === "_") {
-        if (nameEnd + 1 < len && source[nameEnd + 1] === "_") {
-          // __locale
-          nameEnd += 2;
-          nameEnd = scanWhile(source, nameEnd, (c) => isAlpha(c) || isDigit(c));
-        } else {
-          // _locale_
-          nameEnd++;
-          nameEnd = scanWhile(source, nameEnd, (c) => isAlpha(c) || isDigit(c));
-          if (nameEnd < len && source[nameEnd] === "_") nameEnd++;
-        }
-      }
-
-      tokens.push({
-        kind: "name",
-        pos: "name",
-        text: source.slice(i, nameEnd),
-      });
-      i = nameEnd;
-      continue;
-    }
-
-    // Graphic primitives — flat if-chain derived from:
-    //   longest match = try3 <|> try2 <|> try1
-    //
-    // The original loop `for (tryLen = 3; tryLen >= 1; tryLen--)` had
-    // hardcoded per-length branches that never generalized. Unrolling:
-    //   tryLen=3: only matches {::
-    //   tryLen=2: c2 === "." || c2 === ":"
-    //                (the original `|| (c==="`" && c2===":")` was dead:
-    //                 A || (B && A) = A by absorption)
-    //   tryLen=1: always matches
-    if (isGraphic(c)) {
-      let text: string;
-      if (
-        c === "{" && i + 2 < len &&
-        source[i + 1] === ":" && source[i + 2] === ":"
-      ) {
-        text = "{::";
-      } else if (i + 1 < len) {
-        const c2 = source[i + 1];
-        if (c2 === "." || c2 === ":") {
-          text = source.slice(i, i + 2);
-        } else {
-          text = c;
-        }
+      const j = scanWhile(
+        source,
+        i + 1,
+        (ch) => isAlpha(ch) || isDigit(ch) || ch === "_",
+      );
+      const suffixEnd = scanDotColon(source, j);
+      if (suffixEnd > j) {
+        // Has dot/colon suffix — classify as primitive/keyword/unknown
+        const text = source.slice(i, suffixEnd);
+        tokens.push(classifyAlpha(text));
+        i = suffixEnd;
       } else {
-        text = c;
+        // Pure name — handle locale suffixes
+        let nameEnd = j;
+        if (nameEnd < len && source[nameEnd] === "_") {
+          const double = nameEnd + 1 < len && source[nameEnd + 1] === "_";
+          nameEnd += double ? 2 : 1;
+          nameEnd = scanWhile(
+            source,
+            nameEnd,
+            (ch) => isAlpha(ch) || isDigit(ch),
+          );
+          if (!double && nameEnd < len && source[nameEnd] === "_") nameEnd++;
+        }
+        tokens.push({
+          kind: "name",
+          pos: "name",
+          text: source.slice(i, nameEnd),
+        });
+        i = nameEnd;
       }
-
-      tokens.push({ kind: "prim", pos: classifyPrim(text), text });
-      i += text.length;
       continue;
     }
 
-    // Standalone . and : (conjunctions when preceded by whitespace)
-    if (c === "." || c === ":") {
-      tokens.push({ kind: "prim", pos: "conj", text: c });
-      i++;
+    // Rule 3: Digit/underscore-start token
+    if (isDigit(c) || c === "_") {
+      const bodyEnd = scanWhile(
+        source,
+        i + 1,
+        (ch) => isAlpha(ch) || isDigit(ch) || ch === "_" || ch === ".",
+      );
+      const suffixEnd = scanDotColon(source, bodyEnd);
+      const end = suffixEnd > bodyEnd ? suffixEnd : bodyEnd;
+      tokens.push(classifyNumeric(source, i, end));
+      i = end;
+      continue;
+    }
+
+    // Rule 1: Graphic-start or standalone . and :
+    if (isGraphic(c) || c === "." || c === ":") {
+      const suffixEnd = scanDotColon(source, i + 1);
+      const text = source.slice(i, suffixEnd);
+      tokens.push(classifyPrim(text));
+      i = suffixEnd;
       continue;
     }
 

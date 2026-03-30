@@ -19,14 +19,6 @@ deno task weave -- --variant <name> <input.ij>
 deno test
 ```
 
-## Setup
-
-Requires Deno 1.45+. To verify your installation:
-
-```sh
-deno --version
-```
-
 See [example.ij](example.ij) for a working literate source example.
 
 ## Development
@@ -45,7 +37,7 @@ Tests are in `test/` and cover parser, variants, tangle, and weave
 functionality.
 
 `test/j_lexer_test.ts` tests the J tokenizer. `test/j_parser_test.ts` tests the
-J parser and includes integration tests against `clz.ijs` lines.
+J parser.
 
 ## Architecture
 
@@ -53,9 +45,7 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
 
 - `src/main.ts` — CLI entry point; parses args with `@std/cli/parse-args`,
   dispatches to tangle or weave.
-- `src/types.ts` — AST types: `Document` contains a `VariantOrder` and
-  `Section[]` (either `Prose` or `Chunk`). `ResolvedChunk` is the output of
-  variant resolution.
+- `src/types.ts` — AST types.
 - `src/parser.ts` — Line-by-line parser. Recognizes `NB.% variants:` header,
   `NB.% [[variant.name` chunk opens, `NB.% ]]` chunk closes. The `0 : 0` / `)`
   delimiters mark prose blocks. Everything else is throw away.
@@ -69,6 +59,8 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
 - `src/j/` — J language parsing implementation: lexer, parser, and AST for J
   expressions. Used for syntax-aware processing of J code within literate
   sources.
+  - `src/j/lexer.ts` The tokenizer.
+  - `src/j/parser.ts` The J parser.
 
 ## Source File Format
 

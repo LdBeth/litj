@@ -33,13 +33,14 @@ export type Token =
   | { kind: "number"; pos: "noun"; nk: NumKind; text: string }
   | { kind: "string"; pos: "noun"; text: string }
   | { kind: "name"; pos: "name"; text: string }
-  | { kind: "prim"; pos: "verb" | "adv" | "conj"; text: string }
+  | { kind: "prim"; pos: "noun" | "verb" | "adv" | "conj"; text: string }
   | { kind: "copula"; pos: "copula"; text: string }
   | { kind: "keyword"; pos: "mark"; text: string }
   | { kind: "lpar"; pos: "lpar" }
   | { kind: "rpar"; pos: "rpar" }
   | { kind: "direct"; pos: "mark"; defKind: DirectKind | null; body: Token[] }
   | { kind: "direct_noun"; pos: "noun"; body: string }
+  | { kind: "unknown"; pos: "mark"; text: string }
   | { kind: "error"; message: string };
 
 /**
@@ -61,6 +62,6 @@ export type JNode =
   | { kind: "fork"; f: JNode; g: JNode; h: JNode } // (f g h) y = (f y) g (h y)
   | { kind: "adv"; verb: JNode; adv: JNode }
   | { kind: "conj"; left: JNode; con: JNode; right: JNode }
-  | { kind: "prim"; token: string; pos: "verb" | "adv" | "conj" }
+  | { kind: "prim"; token: string; pos: "noun" | "verb" | "adv" | "conj" }
   | { kind: "direct"; defKind: DirectKind | null; body: string } // {{ ... }}
   | { kind: "explicit"; valence: 1 | 2; body: string }; // 3 : 0 / verb define
