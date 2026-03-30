@@ -29,7 +29,7 @@ export type DirectKind = "m" | "d" | "v" | "a" | "c" | "n" | "*";
  * Discriminated on `kind` (lexical category from jlin.ixml);
  * each variant carries `pos` for the shift-reduce parser table.
  */
-export type Token =
+export type ValidToken =
   | { kind: "number"; pos: "noun"; nk: NumKind; text: string }
   | { kind: "string"; pos: "noun"; text: string }
   | { kind: "name"; pos: "name"; text: string }
@@ -39,7 +39,10 @@ export type Token =
   | { kind: "lpar"; pos: "lpar" }
   | { kind: "rpar"; pos: "rpar" }
   | { kind: "direct"; pos: "mark"; defKind: DirectKind | null; body: Token[] }
-  | { kind: "direct_noun"; pos: "noun"; body: string }
+  | { kind: "direct_noun"; pos: "noun"; body: string };
+
+export type Token =
+  | ValidToken
   | { kind: "unknown"; pos: "mark"; text: string }
   | { kind: "error"; message: string };
 

@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { tokenize } from "../src/j/lexer.ts";
 
 Deno.test("lex simple assignment", () => {
-  const tokens = tokenize("x =. 3");
+  const tokens = tokenize("x=.3");
   assertEquals(tokens.length, 3);
   assertEquals(tokens[0], { kind: "name", pos: "name", text: "x" });
   assertEquals(tokens[1], { kind: "copula", pos: "copula", text: "=." });
@@ -138,9 +138,9 @@ Deno.test("unclosed direct definition is error", () => {
 });
 
 Deno.test("lex primitives", () => {
-  const tokens = tokenize("+/ y");
+  const tokens = tokenize("+./y");
   assertEquals(tokens.length, 3);
-  assertEquals(tokens[0], { kind: "prim", pos: "verb", text: "+" });
+  assertEquals(tokens[0], { kind: "prim", pos: "verb", text: "+." });
   assertEquals(tokens[1], { kind: "prim", pos: "adv", text: "/" });
   assertEquals(tokens[2], { kind: "name", pos: "name", text: "y" });
 });

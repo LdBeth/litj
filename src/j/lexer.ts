@@ -1,4 +1,4 @@
-import type { DirectKind, NumKind, Token } from "./ast.ts";
+import type { DirectKind, NumKind, Token, ValidToken } from "./ast.ts";
 
 /**
  * J Language Lexer
@@ -493,6 +493,11 @@ function classifyNumeric(src: string, pos: number, end: number): Token {
  *
  * After forming the raw token text, classify by lookup in primitive tables.
  */
+/** Returns true if every token in the array is a ValidToken (no errors or unknowns). */
+export function isValidTokens(tokens: Token[]): tokens is ValidToken[] {
+  return tokens.every((t) => t.kind !== "error" && t.kind !== "unknown");
+}
+
 export function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
