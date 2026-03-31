@@ -30,3 +30,20 @@ Deno.test("parse fork 2", () => {
   const ast = parseJ("(+*-)");
   assertEquals(ast.kind, "fork");
 });
+
+Deno.test("parse fork 3", () => {
+  const ast = parseJ("1+*");
+  assertEquals(ast.kind, "fork");
+});
+
+Deno.test("parse paren 1", () => {
+  const ast1 = parseJ("+(+1)");
+  const ast2 = parseJ("++1");
+  assertEquals(ast1, ast2);
+});
+
+Deno.test("parse paren 2", () => {
+  const ast1 = parseJ("1+2+1");
+  const ast2 = parseJ("1+(2+1)");
+  assertEquals(ast1, ast2);
+});
