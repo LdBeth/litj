@@ -1,5 +1,6 @@
 /** Part of speech for the shift-reduce parser table. */
 export type Pos =
+  | "copula"
   | "noun"
   | "verb"
   | "adv"
@@ -8,7 +9,6 @@ export type Pos =
 // Extended Pos
 export type EPos =
   | Pos
-  | "copula"
   | "name"
   | "lpar"
   | "rpar"
@@ -41,11 +41,11 @@ export type PrimToken =
   | { kind: "copula"; pos: "copula"; text: string }
   | { kind: "lpar"; pos: "lpar" }
   | { kind: "rpar"; pos: "rpar" }
-  | { kind: "direct_noun"; pos: "noun"; body: string };
+  | { kind: "direct_noun"; pos: "noun"; body: string }
+  | { kind: "name"; pos: "name"; text: string };
 
 export type ValidToken =
   | PrimToken
-  | { kind: "name"; pos: "name"; text: string }
   | { kind: "keyword"; pos: "mark"; text: string }
   | { kind: "direct"; pos: "mark"; defKind: DirectKind | null; body: Token[] };
 
@@ -63,13 +63,20 @@ export type Token =
  */
 export type JNode =
   | { kind: "num"; nk: NumKind; text: string; pos: "noun" }
+  | { kind: "arr"; text: string; pos: "noun" }
   | { kind: "str"; value: string; pos: "noun" }
-  //  | { kind: "name"; id: string }
-  //  | { kind: "assign"; name: string; global: boolean; expr: JNode }
+  | { kind: "name"; id: string; pos: "name" }
+  | {
+    kind: "assign";
+    name: string;
+    global: boolean;
+    expr: JNode;
+    pos: "copula";
+  }
   | { kind: "monad"; verb: JNode; arg: JNode; pos: "noun" }
   | { kind: "dyad"; verb: JNode; left: JNode; right: JNode; pos: "noun" }
-  | { kind: "hook"; f: JNode; g: JNode; pos: "verb" } // (f g) y = y f (g y)
-  | { kind: "fork"; f: JNode; g: JNode; h: JNode; pos: "verb" } // (f g h) y = (f y) g (h y)
+  | { kind: "hook"; f: JNode; g: JNode; pos: Pos }
+  | { kind: "fork"; f: JNode; g: JNode; h: JNode; pos: Pos }
   | { kind: "adv"; verb: JNode; adv: JNode; pos: Pos }
   | { kind: "conj"; left: JNode; con: JNode; right: JNode; pos: Pos }
   | { kind: "prim"; token: string; pos: Pos };

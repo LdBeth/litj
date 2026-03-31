@@ -1,4 +1,4 @@
-import type { EPos, JNode, PrimToken } from "./ast.ts";
+import type { EPos, JNode, Pos, PrimToken } from "./ast.ts";
 import { isPrimTokens, isValidTokens, tokenize } from "./lexer.ts";
 
 /**
@@ -27,13 +27,15 @@ function tokenToStackItem(t: PrimToken): StackItem {
     case "string":
       return { kind: "str", value: t.text, pos: "noun" };
     case "array":
-      return { kind: "prim", token: t.text, pos: "noun" };
+      return { kind: "arr", text: t.text, pos: "noun" };
     case "prim":
       return { kind: "prim", token: t.text, pos: t.pos };
     case "direct_noun":
-      return { kind: "prim", token: t.body, pos: "noun" };
+      return { kind: "str", value: t.body, pos: "noun" };
+    case "name":
+      return { kind: "name", id: t.text, pos: "name" };
     case "copula":
-      return { kind: "tmp", pos: "copula" };
+      return { kind: "prim", token: t.text, pos: "copula" };
     case "lpar":
       return { kind: "tmp", pos: "lpar" };
     case "rpar":
@@ -63,6 +65,25 @@ function isVN(pos: EPos): boolean {
   return pos === "verb" || pos === "noun";
 }
 
+function modTrident(b: Pos, c: Pos, d: Pos): Pos {
+  const table: Record<string, Pos> = {
+    vvc: "conj", nvc: "conj", nca: "adv", ncc: "conj",
+    vca: "adv",  cvc: "conj", vcc: "conj", aca: "conj",
+    acc: "conj", cca: "conj", ccc: "conj", vnc: "adv",
+    avv: "adv",  cvv: "conj", aav: "conj", aaa: "adv",
+    caa: "conj", acn: "adv",  acv: "adv",  ccn: "conj", ccv: "conj",
+  };
+  return table[b[0] + c[0] + d[0]] ?? "verb";
+}
+
+function modBident(b: Pos, c: Pos): Pos {
+  const table: Record<string, Pos> = {
+    nc: "adv", vc: "adv", av: "adv", aa: "adv",
+    ac: "adv", cn: "adv", cv: "adv", ca: "conj", cc: "conj",
+  };
+  return table[b[0] + c[0]] ?? "verb";
+}
+
 /**
  * Try to apply one reduction rule to the stack.
  *
@@ -75,15 +96,16 @@ function isVN(pos: EPos): boolean {
  *
  * Parse table (from Dictionary §E):
  *   a(top)       b           c           d          Rule
- *   EDGE         V           N           any        0 Monad   (consume b,c)
- *   EDGE+AVN     V           V           N          1 Monad   (consume c,d)
- *   EDGE+AVN     N           V           N          2 Dyad    (consume b,c,d)
- *   EDGE+AVN     V+N         A           any        3 Adverb  (consume b,c)
- *   EDGE+AVN     V+N         C           V+N        4 Conj    (consume b,c,d)
- *   EDGE+AVN     V+N         V           V          5 Fork    (consume b,c,d)
- *   EDGE         CAVN        CAVN        any        6 Bident  (consume b,c)
- *   NAME+N       ASGN        CAVN        any        7 Is      (consume a,b,c)
- *   LPAR         CAVN        RPAR        any        8 Paren   (consume a,b,c)
+ *   EDGE         V           N           any        0 Monad         (consume b,c)
+ *   EDGE+AVN     V           V           N          1 Monad         (consume c,d)
+ *   EDGE+AVN     N           V           N          2 Dyad          (consume b,c,d)
+ *   EDGE+AVN     V+N         A           any        3 Adverb        (consume b,c)
+ *   EDGE+AVN     V+N         C           V+N        4 Conj          (consume b,c,d)
+ *   EDGE+AVN     V+N         V           V          5 Fork          (consume b,c,d)
+ *   EDGE         CAVN        CAVN        CAVN       6 Mod trident   (consume b,c,d)
+ *   EDGE         CAVN        CAVN        any        7 Hook/bident   (consume b,c)
+ *   NAME+N       ASGN        CAVN        any        8 Is            (consume a,b,c)
+ *   LPAR         CAVN        RPAR        any        9 Paren         (consume a,b,c)
  *
  * Returns true if a reduction was applied.
  */
@@ -194,7 +216,23 @@ function tryReduce(stack: StackItem[]): boolean {
     return true;
   }
 
-  // Rule 6: EDGE CAVN CAVN any → consume b, c → verb (bident/hook)
+  // Rule 6: EDGE CAVN CAVN CAVN → modifier trident → consume b,c,d
+  if (isEdge(ap) && isCAVN(bp) && isCAVN(cp) && isCAVN(dp)) {
+    stack.splice(
+      len - 4,
+      3,
+      <JNode> {
+        kind: "fork",
+        f: b,
+        g: c,
+        h: d,
+        pos: modTrident(bp as Pos, cp as Pos, dp as Pos),
+      },
+    );
+    return true;
+  }
+
+  // Rule 7: EDGE CAVN CAVN any → hook or modifier bident → consume b,c
   if (isEdge(ap) && isCAVN(bp) && isCAVN(cp)) {
     stack.splice(
       len - 3,
@@ -203,17 +241,27 @@ function tryReduce(stack: StackItem[]): boolean {
         kind: "hook",
         f: b,
         g: c,
-        pos: "verb",
+        pos: modBident(bp as Pos, cp as Pos),
       },
     );
     return true;
   }
 
-  // Rule 7: (NAME+N) ASGN CAVN any → consume a, b, c
-  // Skipped: parsePrimTokens does not handle names/assignment
+  // Rule 8: (NAME|N) COPULA CAVN any → Is → consume a,b,c
+  if ((ap === "name" || ap === "noun") && bp === "copula" && isCAVN(cp)) {
+    const aNode = a as { id?: string };
+    const bNode = b as { token?: string };
+    stack.splice(len - 3, 3, <JNode> {
+      kind: "assign",
+      name: aNode.id ?? "",
+      global: bNode.token === "=:",
+      expr: <JNode> c,
+      pos: "copula",
+    });
+    return true;
+  }
 
-  // Rule 8: LPAR CAVN RPAR any → consume a, b, c → pos of b
-  // a=lpar at len-1, b=CAVN at len-2, c=rpar at len-3. Keep b.
+  // Rule 9: LPAR CAVN RPAR any → Paren → consume a,b,c → pos of b
   if (ap === "lpar" && isCAVN(bp) && cp === "rpar") {
     stack.splice(len - 3, 3, b); // replace [rpar, cavn, lpar] with cavn
     return true;

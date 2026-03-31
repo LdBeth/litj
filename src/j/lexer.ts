@@ -30,7 +30,7 @@ const NOUNS = new Set(["_","__","_.","a.","a:"]);
 const VERBS = new Set(["=","<",">","+","*","-","%","$","|",",",
   ";","#","!","[","]","{","}","?","^",'"',"<.","<:",">.",">:","+.",
   "+:","*.","*:","-.","-:","%.","%:","$.","$:","|.","|:",",.",",:",
-  ";:","#.","#:","!.","!:","[:","{.","{:","{::","}.","}:","?.","^.",
+  ";:","#.","#:","!.","[:","{.","{:","{::","}.","}:","?.","^.",
   '".','":',"~.","~:","/:","\\:","i.","i:","j.","o.","p.","p:","q:",
   "r.","s:","u:","x:","A.","C.","E.","I.","L.","L:","0:","1:","2:",
   "3:","4:","5:","6:","7:","8:","9:","e.","t.","t:"]);
@@ -39,8 +39,8 @@ const VERBS = new Set(["=","<",">","+","*","-","%","$","|",",",
 const ADVERBS = new Set(["~","/","\\","/.","/..","\\.","}","b.","f.","M."]);
 
 // deno-fmt-ignore
-const CONJUNCTIONS = new Set([".",":","^:","@:","@.","&:","&.","&.:","&","@",
-  "`:","S:","H.","T.","D:","D.","d.",";.","`","F.","F..","F.:","F:.",
+const CONJUNCTIONS = new Set([".",":","!:","^:","@:","@.","&:","&.","&.:","&",
+  "@","`:","S:","H.","T.","D:","D.","d.",";.","`","F.","F..","F.:","F:.",
   "F::"]);
 
 // deno-fmt-ignore
@@ -389,7 +389,7 @@ export function isValidTokens(tokens: Token[]): tokens is ValidToken[] {
 }
 
 export function isPrimTokens(tokens: ValidToken[]): tokens is PrimToken[] {
-  return tokens.every((t) => t.kind !== "name" && t.kind !== "keyword");
+  return tokens.every((t) => t.kind !== "direct" && t.kind !== "keyword");
 }
 
 export function tokenize(source: string): Token[] {

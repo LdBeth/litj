@@ -33,6 +33,15 @@ Deno.test("parse zsin", () => {
   assertEquals(ast.kind, "fork");
 });
 
+Deno.test("parse zsin assignment structure", () => {
+  const ast = parseJ("zsin =: 9&o.(((6:o.])*1:o.[)j.(5:o.])*2:o.[)11&o.");
+  assertEquals(ast.kind, "assign");
+  if (ast.kind === "assign") {
+    assertEquals(ast.name, "zsin");
+    assertEquals(ast.global, true);
+  }
+});
+
 /*
 for (const line of CLZ_LINES) {
   Deno.test(`parse clz.ijs: ${line.slice(0, 40)}...`, () => {
@@ -43,15 +52,6 @@ for (const line of CLZ_LINES) {
 }
 
 // Specific structural checks on parsed clz.ijs lines
-
-Deno.test("parse zsin assignment structure", () => {
-  const ast = parseJ("zsin =: 9&o.(((6:o.])*1:o.[)j.(5:o.])*2:o.[)11&o.");
-  assertEquals(ast.kind, "assign");
-  if (ast.kind === "assign") {
-    assertEquals(ast.name, "zsin");
-    assertEquals(ast.global, true);
-  }
-});
 
 Deno.test("parse zmax structure", () => {
   const ast = parseJ("zmax =: 9&o. >.&:| 11&o.");
