@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { isValidTokens, tokenize } from "../src/j/lexer.ts";
-import { parseJ as _parseJ } from "../src/j/parser.ts";
+import { parseJ } from "../src/j/parser.ts";
 
 const CLZ_LINES = [
   "zsin =: 9&o.(((6:o.])*1:o.[)j.(5:o.])*2:o.[)11&o.",
@@ -27,6 +27,12 @@ for (const line of CLZ_LINES) {
     assertEquals(isValidTokens(tokens), true, `Invalid result for: ${line}`);
   });
 }
+
+Deno.test("parse zsin", () => {
+  const ast = parseJ("9&o.(((6:o.])*1:o.[)j.(5:o.])*2:o.[)11&o.");
+  assertEquals(ast.kind, "fork");
+});
+
 /*
 for (const line of CLZ_LINES) {
   Deno.test(`parse clz.ijs: ${line.slice(0, 40)}...`, () => {

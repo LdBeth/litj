@@ -48,14 +48,14 @@ function isEdge(pos: EPos): boolean {
   return pos === "mark" || pos === "copula" || pos === "lpar";
 }
 
-/** AVN = ADV + VERB + NOUN */
-function isAVN(pos: EPos): boolean {
-  return pos === "adv" || pos === "verb" || pos === "noun";
+/** EDGE + AVN = everything on the stack except RPAR and CONJ */
+function isEdgeAVN(pos: EPos): boolean {
+  return pos !== "rpar" && pos !== "conj";
 }
 
 /** CAVN = CONJ + ADV + VERB + NOUN */
 function isCAVN(pos: EPos): boolean {
-  return pos === "conj" || isAVN(pos);
+  return pos === "conj" || pos === "adv" || pos === "verb" || pos === "noun";
 }
 
 /** VN = VERB + NOUN */
@@ -103,81 +103,109 @@ function tryReduce(stack: StackItem[]): boolean {
 
   // Rule 0: EDGE V N any → consume b(V), c(N) → noun
   if (isEdge(ap) && bp === "verb" && cp === "noun") {
-    stack.splice(len - 3, 2, <JNode> {
-      kind: "monad",
-      verb: b,
-      arg: c,
-      pos: "noun",
-    });
+    stack.splice(
+      len - 3,
+      2,
+      <JNode> {
+        kind: "monad",
+        verb: b,
+        arg: c,
+        pos: "noun",
+      },
+    );
     return true;
   }
 
   // Rule 1: (EDGE+AVN) V V N → consume c(V), d(N) → noun
-  if ((isEdge(ap) || isAVN(ap)) && bp === "verb" && cp === "verb" && dp === "noun") {
-    stack.splice(len - 4, 2, <JNode> {
-      kind: "monad",
-      verb: c,
-      arg: d,
-      pos: "noun",
-    });
+  if (isEdgeAVN(ap) && bp === "verb" && cp === "verb" && dp === "noun") {
+    stack.splice(
+      len - 4,
+      2,
+      <JNode> {
+        kind: "monad",
+        verb: c,
+        arg: d,
+        pos: "noun",
+      },
+    );
     return true;
   }
 
   // Rule 2: (EDGE+AVN) N V N → consume b(N), c(V), d(N) → noun
-  if ((isEdge(ap) || isAVN(ap)) && bp === "noun" && cp === "verb" && dp === "noun") {
-    stack.splice(len - 4, 3, <JNode> {
-      kind: "dyad",
-      verb: c,
-      left: b,
-      right: d,
-      pos: "noun",
-    });
+  if (isEdgeAVN(ap) && bp === "noun" && cp === "verb" && dp === "noun") {
+    stack.splice(
+      len - 4,
+      3,
+      <JNode> {
+        kind: "dyad",
+        verb: c,
+        left: b,
+        right: d,
+        pos: "noun",
+      },
+    );
     return true;
   }
 
   // Rule 3: (EDGE+AVN) (V+N) A any → consume b(V+N), c(A) → verb
-  if ((isEdge(ap) || isAVN(ap)) && isVN(bp) && cp === "adv") {
-    stack.splice(len - 3, 2, <JNode> {
-      kind: "adv",
-      verb: b,
-      adv: c,
-      pos: "verb",
-    });
+  if (isEdgeAVN(ap) && isVN(bp) && cp === "adv") {
+    stack.splice(
+      len - 3,
+      2,
+      <JNode> {
+        kind: "adv",
+        verb: b,
+        adv: c,
+        pos: "verb",
+      },
+    );
     return true;
   }
 
   // Rule 4: (EDGE+AVN) (V+N) C (V+N) → consume b, c, d → verb
-  if ((isEdge(ap) || isAVN(ap)) && isVN(bp) && cp === "conj" && isVN(dp)) {
-    stack.splice(len - 4, 3, <JNode> {
-      kind: "conj",
-      left: b,
-      con: c,
-      right: d,
-      pos: "verb",
-    });
+  if (isEdgeAVN(ap) && isVN(bp) && cp === "conj" && isVN(dp)) {
+    stack.splice(
+      len - 4,
+      3,
+      <JNode> {
+        kind: "conj",
+        left: b,
+        con: c,
+        right: d,
+        pos: "verb",
+      },
+    );
     return true;
   }
 
   // Rule 5: (EDGE+AVN) (V+N) V V → consume b, c, d → verb (fork/trident)
-  if ((isEdge(ap) || isAVN(ap)) && isVN(bp) && cp === "verb" && dp === "verb") {
-    stack.splice(len - 4, 3, <JNode> {
-      kind: "fork",
-      f: b,
-      g: c,
-      h: d,
-      pos: "verb",
-    });
+  if (isEdgeAVN(ap) && isVN(bp) && cp === "verb" && dp === "verb") {
+    stack.splice(
+      len - 4,
+      3,
+      <JNode> {
+        kind: "fork",
+        f: b,
+        g: c,
+        h: d,
+        pos: "verb",
+      },
+    );
     return true;
   }
 
   // Rule 6: EDGE CAVN CAVN any → consume b, c → verb (bident/hook)
   if (isEdge(ap) && isCAVN(bp) && isCAVN(cp)) {
-    stack.splice(len - 3, 2, <JNode> {
-      kind: "hook",
-      f: b,
-      g: c,
-      pos: "verb",
-    });
+    stack.splice(
+      len - 3,
+      2,
+      <JNode> {
+        kind: "hook",
+        f: b,
+        g: c,
+        pos: "verb",
+      },
+    );
     return true;
   }
 
@@ -187,8 +215,7 @@ function tryReduce(stack: StackItem[]): boolean {
   // Rule 8: LPAR CAVN RPAR any → consume a, b, c → pos of b
   // a=lpar at len-1, b=CAVN at len-2, c=rpar at len-3. Keep b.
   if (ap === "lpar" && isCAVN(bp) && cp === "rpar") {
-    stack.splice(len - 1, 1);    // remove a (lpar), now b is at len-2, c at len-3
-    stack.splice(len - 3, 1);    // remove c (rpar)
+    stack.splice(len - 3, 3, b); // replace [rpar, cavn, lpar] with cavn
     return true;
   }
 

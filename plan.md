@@ -20,8 +20,8 @@ Read @dicte.htm for parsing algorithm.
 
 ### Error in current parser implementation
 
-Currently, the parser completely missing the moving successive
-elements from the tail end of a queue to the top of a stack part.
+Currently, the parser completely missing the moving successive elements from the
+tail end of a queue to the top of a stack part.
 
 ## Help
 
