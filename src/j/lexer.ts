@@ -1,4 +1,10 @@
-import type { DirectKind, NumKind, Token, ValidToken } from "./ast.ts";
+import type {
+  DirectKind,
+  NumKind,
+  PrimToken,
+  Token,
+  ValidToken,
+} from "./ast.ts";
 
 /**
  * J Language Lexer
@@ -17,146 +23,28 @@ import type { DirectKind, NumKind, Token, ValidToken } from "./ast.ts";
  */
 
 // ── Primitive classification tables ─────────────────────────────────────────
-const NOUNS = new Set([
-  "_",
-  "__",
-  "_.",
-  "a.",
-  "a:",
-]);
+// deno-fmt-ignore
+const NOUNS = new Set(["_","__","_.","a.","a:"]);
 
-const VERBS = new Set([
-  "=",
-  "<",
-  ">",
-  "+",
-  "*",
-  "-",
-  "%",
-  "$",
-  "|",
-  ",",
-  ";",
-  "#",
-  "!",
-  "[",
-  "]",
-  "{",
-  "}",
-  "?",
-  "^",
-  '"',
-  "<.",
-  "<:",
-  ">.",
-  ">:",
-  "+.",
-  "+:",
-  "*.",
-  "*:",
-  "-.",
-  "-:",
-  "%.",
-  "%:",
-  "$.",
-  "$:",
-  "|.",
-  "|:",
-  ",.",
-  ",:",
-  ";:",
-  "#.",
-  "#:",
-  "!.",
-  "!:",
-  "[:",
-  "{.",
-  "{:",
-  "{::",
-  "}.",
-  "}:",
-  "?.",
-  "^.",
-  '".',
-  '":',
-  "~.",
-  "~:",
-  "/:",
-  "\\:",
-  "i.",
-  "i:",
-  "j.",
-  "o.",
-  "p.",
-  "p:",
-  "q:",
-  "r.",
-  "s:",
-  "u:",
-  "x:",
-  "A.",
-  "C.",
-  "E.",
-  "I.",
-  "L.",
-  "L:",
-  "0:",
-  "1:",
-  "2:",
-  "3:",
-  "4:",
-  "5:",
-  "6:",
-  "7:",
-  "8:",
-  "9:",
-  "e.",
-  "t.",
-  "t:",
-]);
+// deno-fmt-ignore
+const VERBS = new Set(["=","<",">","+","*","-","%","$","|",",",
+  ";","#","!","[","]","{","}","?","^",'"',"<.","<:",">.",">:","+.",
+  "+:","*.","*:","-.","-:","%.","%:","$.","$:","|.","|:",",.",",:",
+  ";:","#.","#:","!.","!:","[:","{.","{:","{::","}.","}:","?.","^.",
+  '".','":',"~.","~:","/:","\\:","i.","i:","j.","o.","p.","p:","q:",
+  "r.","s:","u:","x:","A.","C.","E.","I.","L.","L:","0:","1:","2:",
+  "3:","4:","5:","6:","7:","8:","9:","e.","t.","t:"]);
 
-const ADVERBS = new Set([
-  "~",
-  "/",
-  "\\",
-  "/.",
-  "/..",
-  "\\.",
-  "}",
-  "b.",
-  "f.",
-  "M.",
-]);
+// deno-fmt-ignore
+const ADVERBS = new Set(["~","/","\\","/.","/..","\\.","}","b.","f.","M."]);
 
-const CONJUNCTIONS = new Set([
-  "^:",
-  "@:",
-  "@.",
-  "&:",
-  "&.",
-  "&.:",
-  "&",
-  "@",
-  "`:",
-  "S:",
-  "H.",
-  "T.",
-  "D:",
-  "D.",
-  "d.",
-  ";.",
-  "`",
-  "F.",
-  "F..",
-  "F.:",
-  "F:.",
-  "F::",
-]);
+// deno-fmt-ignore
+const CONJUNCTIONS = new Set(["^:","@:","@.","&:","&.","&.:","&","@",
+  "`:","S:","H.","T.","D:","D.","d.",";.","`","F.","F..","F.:","F:.",
+  "F::"]);
 
-const COPULAS = new Set([
-  "=.",
-  "=:",
-]);
+// deno-fmt-ignore
+const COPULAS = new Set(["=.","=:",]);
 
 const GRAPHICS = new Set('=<>+*-%$~|,;#!/\\[]`@&?^"{}'.split(""));
 
@@ -461,8 +349,8 @@ function scanDotColon(src: string, pos: number): number {
 
 /** Classify an alpha-start token */
 function classifyAlpha(text: string): Token {
-  if (CONTROL_WORDS.has(text)) return { kind: "keyword", pos: "mark", text };
-  if (KEYWORD_PATTERNS.some((p) => p.test(text))) {
+  // Conditional fusion: both branches yield { kind: "keyword", pos: "mark", text }
+  if (CONTROL_WORDS.has(text) || KEYWORD_PATTERNS.some((p) => p.test(text))) {
     return { kind: "keyword", pos: "mark", text };
   }
   return classifyPrim(text);
@@ -479,7 +367,8 @@ function classifyNumeric(src: string, pos: number, end: number): Token {
   if (atom && atom.end === end) {
     return { kind: "number", pos: "noun", nk: atom.nk, text };
   }
-  return { kind: "unknown", pos: "mark", text };
+  // prim is already { kind: "unknown", pos: "mark", text }
+  return prim;
 }
 
 // ── Main tokenizer ──────────────────────────────────────────────────────────
@@ -497,6 +386,10 @@ function classifyNumeric(src: string, pos: number, end: number): Token {
 /** Returns true if every token in the array is a ValidToken (no errors or unknowns). */
 export function isValidTokens(tokens: Token[]): tokens is ValidToken[] {
   return tokens.every((t) => t.kind !== "error" && t.kind !== "unknown");
+}
+
+export function isPrimTokens(tokens: ValidToken[]): tokens is PrimToken[] {
+  return tokens.every((t) => t.kind !== "name" && t.kind !== "keyword");
 }
 
 export function tokenize(source: string): Token[] {
@@ -521,30 +414,28 @@ export function tokenize(source: string): Token[] {
     }
 
     // String literal
+    // Scan-slice deforestation: indexOf finds quote boundaries,
+    // slice grabs segments — eliminates char-by-char concatenation.
     if (c === "'") {
       i++;
       let value = "";
-      let closed = false;
-      while (i < len) {
-        if (source[i] === "'") {
-          if (i + 1 < len && source[i + 1] === "'") {
-            value += "'";
-            i += 2;
-          } else {
-            i++;
-            closed = true;
-            break;
-          }
+      for (;;) {
+        const q = source.indexOf("'", i);
+        if (q === -1) {
+          tokens.push({ kind: "error", message: "open quote" });
+          i = len;
+          break;
+        }
+        value += source.slice(i, q);
+        if (q + 1 < len && source[q + 1] === "'") {
+          value += "'";
+          i = q + 2;
         } else {
-          value += source[i];
-          i++;
+          i = q + 1;
+          tokens.push({ kind: "string", pos: "noun", text: value });
+          break;
         }
       }
-      tokens.push(
-        closed
-          ? { kind: "string", pos: "noun", text: value }
-          : { kind: "error", message: "open quote" },
-      );
       continue;
     }
 
@@ -683,9 +574,44 @@ export function tokenize(source: string): Token[] {
         (ch) => isAlpha(ch) || isDigit(ch) || ch === "_" || ch === ".",
       );
       const suffixEnd = scanDotColon(source, bodyEnd);
-      const end = suffixEnd > bodyEnd ? suffixEnd : bodyEnd;
-      tokens.push(classifyNumeric(source, i, end));
-      i = end;
+
+      if (suffixEnd > bodyEnd) {
+        // Has dot/colon suffix — no array merging possible
+        tokens.push(classifyNumeric(source, i, suffixEnd));
+        i = suffixEnd;
+      } else {
+        // No suffix — look ahead for consecutive rule-3 tokens to merge
+        // Variable elimination: peek ≡ arrayEnd (invariant: both init to bodyEnd, both set to nb)
+        let arrayEnd = bodyEnd;
+        while (arrayEnd < len) {
+          const wsEnd = scanWhile(
+            source,
+            arrayEnd,
+            (ch) => ch === " " || ch === "\t",
+          );
+          if (wsEnd === arrayEnd || wsEnd >= len) break;
+          const nc = source[wsEnd];
+          if (!(isDigit(nc) || nc === "_")) break;
+          const nb = scanWhile(
+            source,
+            wsEnd + 1,
+            (ch) => isAlpha(ch) || isDigit(ch) || ch === "_" || ch === ".",
+          );
+          if (scanDotColon(source, nb) > nb) break;
+          arrayEnd = nb;
+        }
+
+        if (arrayEnd > bodyEnd) {
+          tokens.push({
+            kind: "array",
+            pos: "noun",
+            text: source.slice(i, arrayEnd),
+          });
+        } else {
+          tokens.push(classifyNumeric(source, i, bodyEnd));
+        }
+        i = arrayEnd;
+      }
       continue;
     }
 

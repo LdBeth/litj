@@ -258,3 +258,90 @@ Deno.test("digit-start with alpha body is one token", () => {
   assertEquals(tokens.length, 1);
   assertEquals(tokens[0], { kind: "unknown", pos: "mark", text: "12abc" });
 });
+
+// ── Array merging: consecutive number tokens ────────────────────────────────
+
+Deno.test("consecutive integers merge into array", () => {
+  const tokens = tokenize("1 2 3");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], { kind: "array", pos: "noun", text: "1 2 3" });
+});
+
+Deno.test("mixed number types merge into array", () => {
+  const tokens = tokenize("21p2  3p 3 31");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], {
+    kind: "array",
+    pos: "noun",
+    text: "21p2  3p 3 31",
+  });
+});
+
+Deno.test("infinity merges with numbers", () => {
+  const tokens = tokenize("_ 3");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], { kind: "array", pos: "noun", text: "_ 3" });
+});
+
+Deno.test("negative infinity merges with numbers", () => {
+  const tokens = tokenize("__ 3");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], { kind: "array", pos: "noun", text: "__ 3" });
+});
+
+Deno.test("suffix-colon token breaks array merge", () => {
+  // _32: has a colon suffix, should not merge
+  const tokens = tokenize("3 _32:");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], {
+    kind: "number",
+    pos: "noun",
+    nk: "integer",
+    text: "3",
+  });
+  assertEquals(tokens[1], { kind: "unknown", pos: "mark", text: "_32:" });
+});
+
+Deno.test("verb 0: does not merge with number", () => {
+  const tokens = tokenize("0: 3");
+  assertEquals(tokens.length, 2);
+  assertEquals(tokens[0], { kind: "prim", pos: "verb", text: "0:" });
+});
+
+Deno.test("full tokenization with array in context", () => {
+  const tokens = tokenize("123+  21p2  3p 3 31 a:p2 _32:");
+  assertEquals(tokens.length, 6);
+  assertEquals(tokens[0], {
+    kind: "number",
+    pos: "noun",
+    nk: "integer",
+    text: "123",
+  });
+  assertEquals(tokens[1], { kind: "prim", pos: "verb", text: "+" });
+  assertEquals(tokens[2], {
+    kind: "array",
+    pos: "noun",
+    text: "21p2  3p 3 31",
+  });
+  assertEquals(tokens[3], { kind: "prim", pos: "noun", text: "a:" });
+  assertEquals(tokens[4], { kind: "name", pos: "name", text: "p2" });
+  assertEquals(tokens[5], { kind: "unknown", pos: "mark", text: "_32:" });
+});
+
+Deno.test("single number is not array", () => {
+  const tokens = tokenize("42");
+  assertEquals(tokens.length, 1);
+  assertEquals(tokens[0], {
+    kind: "number",
+    pos: "noun",
+    nk: "integer",
+    text: "42",
+  });
+});
+
+Deno.test("numbers separated by operator do not merge", () => {
+  const tokens = tokenize("1+2");
+  assertEquals(tokens.length, 3);
+  assertEquals(tokens[0].kind, "number");
+  assertEquals(tokens[2].kind, "number");
+});

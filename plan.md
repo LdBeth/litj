@@ -1,21 +1,10 @@
 # Bitter lesson learned
 
-Read this thoroughly to understand the task. Amend the test and data types to
-reflect the correct implementation first, then ask for approval, then start
-writing the code.
+Read this thoroughly to understand the task. Ask questions to user for unclear
+instructions. Reference type defined in `src/j/ast.ts` if necessary, and create
+correct test first when implement a feature.
 
-It is difficult to parse J correctly without an interpreter implementation
-(lookup the class of a variable definition), because J executes the expression
-as it is parsing, and the class of the result after dynamic execution affects
-the parsing behavior. Unless when the expression is fully composed of known
-primitives, which could make the inference of result type easier.
-
-Creating just the tokenizer is the easier approach. However the current
-tokenizer implementation still has several flaws.
-
-## Errors in the current Lexer implementation.
-
-### The core tokenization algorithm is still not right!
+## Lexer algorithm
 
 A J token that is neither string nor direct definition must follow the accepting
 rules, no matter its class:
@@ -36,15 +25,35 @@ alphabet) or number rule (if starts with digit or `_`).
 Even something like `a:::.....::` is not a valid J primitive, the tokenizer
 should accept it according to the above rules, and assign it an `unkown` class.
 
+### Miss in the current lexing algorithm
+
+One additional rule to implement is J treats consecutive number tokens as a
+single token represent an array.
+
+```J
+   ;:'123+  21p2  3p 3 31 a:p2 _32:'
+┌───┬─┬─────────────┬──┬──┬────┐
+│123│+│21p2  3p 3 31│a:│p2│_32:│
+└───┴─┴─────────────┴──┴──┴────┘
+```
+
+Choose appropriate strategy for implement this rule.
+
 ## Help
 
 When you encounter difficulty, you should reference J itself for parsing
 behavior.
 
 The command for jconsole is `jc`. The `trace` utility can be used to provide
-insights on parsing behavior. The `;:` verb can be used for check parsing.
+insights on parsing behavior. The `;:` verb can be used for check tokenization.
+
+An invalid J sentence can still be tokenized as long as it does not contain open
+quote or unclosed direct definition. An invalid J sentence or a sentence with
+free variable would trigger error during parser tracing.
 
 ```bash
+# tokenize
 echo ";:'+/...:;'" | jc -js
+# parser trace
 jc -js "require'trace'" 'trace {{)n (2+1)+(2+#) }}' < /dev/null
 ```

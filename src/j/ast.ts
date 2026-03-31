@@ -26,20 +26,24 @@ export type DirectKind = "m" | "d" | "v" | "a" | "c" | "n" | "*";
 /**
  * A classified J token produced by the lexer.
  *
- * Discriminated on `kind` (lexical category from jlin.ixml);
+ * Discriminated on `kind`;
  * each variant carries `pos` for the shift-reduce parser table.
  */
-export type ValidToken =
+export type PrimToken =
+  | { kind: "array"; pos: "noun"; text: string }
   | { kind: "number"; pos: "noun"; nk: NumKind; text: string }
   | { kind: "string"; pos: "noun"; text: string }
-  | { kind: "name"; pos: "name"; text: string }
   | { kind: "prim"; pos: "noun" | "verb" | "adv" | "conj"; text: string }
   | { kind: "copula"; pos: "copula"; text: string }
-  | { kind: "keyword"; pos: "mark"; text: string }
   | { kind: "lpar"; pos: "lpar" }
   | { kind: "rpar"; pos: "rpar" }
   | { kind: "direct"; pos: "mark"; defKind: DirectKind | null; body: Token[] }
   | { kind: "direct_noun"; pos: "noun"; body: string };
+
+export type ValidToken =
+  | PrimToken
+  | { kind: "name"; pos: "name"; text: string }
+  | { kind: "keyword"; pos: "mark"; text: string };
 
 export type Token =
   | ValidToken
