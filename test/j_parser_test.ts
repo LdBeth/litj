@@ -1,8 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { parseJ } from "../src/j/parser.ts";
 
-/*
-
 Deno.test("parse conjunction derivation", () => {
   const ast = parseJ("9&o.");
   assertEquals(ast.kind, "conj");
@@ -32,5 +30,3 @@ Deno.test("parse fork 2", () => {
   const ast = parseJ("(+*-)");
   assertEquals(ast.kind, "fork");
 });
-
- */

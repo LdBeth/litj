@@ -34,8 +34,8 @@ and `:` characters. The result is looked up in the primitive tables.
 One alpha character, then `[a-zA-Z0-9_]*`, then any trailing `.` and `:`.
 
 - With dot/colon suffix: classify as primitive, control keyword, or unknown.
-- Without suffix: it is a **name**. Names may carry locale suffixes
-  (`_locale_`, `__locale`).
+- Without suffix: it is a **name**. Names may carry locale suffixes (`_locale_`,
+  `__locale`).
 
 ```
 if.     → keyword
