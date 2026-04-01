@@ -25,6 +25,13 @@ See [example.ij](example.ij) for a working literate source example.
 
 Use deno LSP to query definition and types.
 
+### XML output
+
+New XML-emitting code should follow the `el`/`text` builder pattern in
+`src/weave.ts`. The `XmlDeclaration` local type workaround (omitting the
+upstream `declaration` field) is required to pass a custom declaration to
+`stringify`.
+
 ### Workflow for J Lexer/Parser Changes
 
 Follow this workflow: amend types and tests first, ask for approval, then
@@ -39,6 +46,7 @@ functionality.
 
 `test/j_lexer_test.ts` tests the J tokenizer. `test/j_parser_test.ts` tests the
 J parser. `test/j_clz.test.ts` tests parser against real world J code.
+`test/j_print_test.ts` tests the J printer (round-trips and XML spot checks).
 
 ## Architecture
 
@@ -64,6 +72,8 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
   - `src/j/parser.ts` The J parser.
   - `src/j/ast.ts` Token/AST type definitions.
   - `src/j/rewrite.ts` AST rewriting tools.
+  - `src/j/print.ts` — plain-J printer (`printJ`) and annotated XML serialiser
+    (`printJXml`, `nodeToXml`). Schema: `src/j/j-ast.xsd`.
   - `src/j/index.ts` Public module entry point.
 
 ## Source File Format

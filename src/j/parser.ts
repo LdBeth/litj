@@ -18,7 +18,7 @@ export function parseJ(source: string): JNode {
   return parsePrimTokens(tokens);
 }
 
-type StackItem = JNode | { kind: "tmp"; pos: EPos };
+type StackItem = JNode | { pos: Exclude<EPos, Pos> };
 
 function tokenToStackItem(t: PrimToken): StackItem {
   switch (t.kind) {
@@ -33,13 +33,13 @@ function tokenToStackItem(t: PrimToken): StackItem {
     case "direct_noun":
       return { kind: "str", value: t.body, pos: "noun" };
     case "name":
-      return { kind: "name", id: t.text, pos: "name" };
+      return { kind: "name", id: t.text, pos: "verb" }; // assume name to be verb
     case "copula":
       return { kind: "prim", token: t.text, pos: "copula" };
     case "lpar":
-      return { kind: "tmp", pos: "lpar" };
+      return { pos: "lpar" };
     case "rpar":
-      return { kind: "tmp", pos: "rpar" };
+      return { pos: "rpar" };
   }
 }
 
@@ -66,6 +66,10 @@ function isCAVN(i: StackItem): i is JNode {
 /** VN = VERB + NOUN */
 function isVN(i: StackItem): i is JNode {
   return i.pos === "verb" || i.pos === "noun";
+}
+
+function isName(i: StackItem): boolean {
+  return ("kind" in i && i.kind === "name");
 }
 
 function modTrident(b: Pos, c: Pos, d: Pos): Pos {
@@ -110,8 +114,8 @@ function modBident(b: Pos, c: Pos): Pos {
   return table[b[0] + c[0]] ?? "verb";
 }
 
-type Min4Array<T> = [T, T, T, T, ...T[]];
-type Stack = Min4Array<StackItem>;
+type Mark = Extract<{ pos: "mark" }, StackItem>;
+type Stack = [Mark, Mark, Mark, Mark, ...StackItem[]];
 
 /**
  * Try to apply one reduction rule to the stack.
@@ -258,7 +262,7 @@ function tryReduce(stack: Stack): boolean {
         f: b,
         g: c,
         h: d,
-        pos: modTrident(bp as Pos, cp as Pos, dp as Pos),
+        pos: modTrident(b.pos, c.pos, d.pos),
       },
     );
     return true;
@@ -273,14 +277,14 @@ function tryReduce(stack: Stack): boolean {
         kind: "hook",
         f: b,
         g: c,
-        pos: modBident(bp as Pos, cp as Pos),
+        pos: modBident(b.pos, c.pos),
       },
     );
     return true;
   }
 
   // Rule 8: (NAME|N) COPULA CAVN any → Is → consume a,b,c
-  if ((ap === "name" || ap === "noun") && bp === "copula" && isCAVN(c)) {
+  if ((isName(a) || ap === "noun") && bp === "copula" && isCAVN(c)) {
     stack.splice(
       len - 3,
       3,
@@ -306,7 +310,7 @@ function tryReduce(stack: Stack): boolean {
 
 function parsePrimTokens(tokens: PrimToken[]): JNode {
   // Stack initialized with 4 marks (per J spec)
-  const mark: StackItem = { kind: "tmp", pos: "mark" };
+  const mark: Mark = { pos: "mark" };
   const stack: Stack = [mark, mark, mark, mark];
 
   // Queue: § token1 token2 ... (sentence prefixed by mark)

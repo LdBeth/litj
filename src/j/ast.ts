@@ -65,7 +65,7 @@ export type JNode =
   | { kind: "num"; nk: NumKind; text: string; pos: "noun" }
   | { kind: "arr"; text: string; pos: "noun" }
   | { kind: "str"; value: string; pos: "noun" }
-  | { kind: "name"; id: string; pos: "name" }
+  | { kind: "name"; id: string; pos: Pos }
   | {
     kind: "assign";
     name: string;

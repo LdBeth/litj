@@ -1,46 +1,15 @@
-import { stringify } from "@std/xml";
 import type {
-  XmlDocument as _XmlDocument,
+  XmlDeclaration,
+  XmlDocument,
   XmlElement,
   XmlNode,
-  XmlTextNode,
-} from "@std/xml";
+} from "./xml.ts";
+import { el, stringify, text } from "./xml.ts";
 
-type XmlDeclaration = {
-  type: "declaration";
-  version: string;
-  standalone?: "yes" | "no";
-  encoding?: string;
-};
-
-type XmlDocument = Omit<_XmlDocument, "declaration"> & {
-  declaration?: XmlDeclaration;
-};
 import type { Document } from "./types.ts";
 import { isReachable } from "./variants.ts";
 
 // ── XML node builders ────────────────────────────────────────────────────────
-
-function el(
-  tag: string,
-  attrs: Record<string, string | undefined>,
-  children: XmlNode[] = [],
-): XmlElement {
-  const clean: Record<string, string> = {};
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v != null) clean[k] = v;
-  }
-  return {
-    type: "element",
-    name: { raw: tag, prefix: "", local: tag, uri: "" },
-    attributes: clean,
-    children,
-  };
-}
-
-function text(s: string): XmlTextNode {
-  return { type: "text", text: s };
-}
 
 function code(s: string): XmlElement {
   return el("code", {}, [text(s)]);
@@ -92,7 +61,7 @@ export function weave(doc: Document, target: string): string {
     ]),
   };
 
-  return stringify(document as _XmlDocument, {
+  return stringify(document, {
     declaration: true,
     indent: "  ",
   });
