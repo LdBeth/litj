@@ -27,9 +27,10 @@ Use deno LSP to query definition and types.
 
 ### Workflow for J Lexer/Parser Changes
 
-`plan.md` contains the task spec. Follow its workflow: amend types and tests
-first, ask for approval, then implement. Changing `src/j/ast.ts` Token type will
-break `src/j/parser.ts` — update both.
+Follow this workflow: amend types and tests first, ask for approval, then
+implement. Changing `src/j/ast.ts` Token type will break `src/j/parser.ts` —
+update both. `src/j/rewrite.ts` handles AST rewriting; `src/j/index.ts` is the
+public API for the J sub-module.
 
 ## Testing
 
@@ -37,7 +38,7 @@ Tests are in `test/` and cover parser, variants, tangle, and weave
 functionality.
 
 `test/j_lexer_test.ts` tests the J tokenizer. `test/j_parser_test.ts` tests the
-J parser.
+J parser. `test/j_clz.test.ts` tests parser against real world J code.
 
 ## Architecture
 
@@ -61,6 +62,9 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
   sources.
   - `src/j/lexer.ts` The tokenizer.
   - `src/j/parser.ts` The J parser.
+  - `src/j/ast.ts` Token/AST type definitions.
+  - `src/j/rewrite.ts` AST rewriting tools.
+  - `src/j/index.ts` Public module entry point.
 
 ## Source File Format
 
