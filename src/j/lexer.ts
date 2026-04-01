@@ -23,8 +23,7 @@ import type {
  */
 
 // ── Primitive classification tables ─────────────────────────────────────────
-// deno-fmt-ignore
-const NOUNS = new Set(["_","__","_.","a.","a:"]);
+const NOUNS = new Set("_ __ _. a. a:".split(" "));
 
 // deno-fmt-ignore
 const VERBS = new Set(["=","<",">","+","*","-","%","$","|",",",
@@ -35,16 +34,14 @@ const VERBS = new Set(["=","<",">","+","*","-","%","$","|",",",
   "r.","s:","u:","x:","A.","C.","E.","I.","L.","L:","0:","1:","2:",
   "3:","4:","5:","6:","7:","8:","9:","e.","t.","t:"]);
 
-// deno-fmt-ignore
-const ADVERBS = new Set(["~","/","\\","/.","/..","\\.","}","b.","f.","M."]);
+const ADVERBS = new Set("~ / \\ /. /.. \\. } b. f. M.".split(" "));
 
 // deno-fmt-ignore
 const CONJUNCTIONS = new Set([".",":","!:","^:","@:","@.","&:","&.","&.:","&",
   "@","`:","S:","H.","T.","D:","D.","d.",";.","`","F.","F..","F.:","F:.",
   "F::"]);
 
-// deno-fmt-ignore
-const COPULAS = new Set(["=.","=:",]);
+const COPULAS = new Set("=. =:".split(" "));
 
 const GRAPHICS = new Set('=<>+*-%$~|,;#!/\\[]`@&?^"{}'.split(""));
 

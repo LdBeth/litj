@@ -46,25 +46,26 @@ function tokenToStackItem(t: PrimToken): StackItem {
 // --- Part-of-speech predicates ---
 
 /** EDGE = MARK + ASGN(copula) + LPAR */
-function isEdge(pos: EPos): boolean {
-  return pos === "mark" || pos === "copula" || pos === "lpar";
+function isEdge(i: StackItem): boolean {
+  return i.pos === "mark" || i.pos === "copula" || i.pos === "lpar";
 }
 
 /** EDGE + AVN (+ NAME) = everything on the stack except RPAR and CONJ.
  *  Note: includes "name", which is not in the J Dictionary EDGE+AVN set,
  *  but name in position a is harmless since no other rule condition fires on it. */
-function isEdgeAVN(pos: EPos): boolean {
-  return pos !== "rpar" && pos !== "conj";
+function isEdgeAVN(i: StackItem): boolean {
+  return i.pos !== "rpar" && i.pos !== "conj";
 }
 
 /** CAVN = CONJ + ADV + VERB + NOUN */
-function isCAVN(pos: EPos): boolean {
-  return pos === "conj" || pos === "adv" || pos === "verb" || pos === "noun";
+function isCAVN(i: StackItem): i is JNode {
+  return i.pos === "conj" || i.pos === "adv" || i.pos === "verb" ||
+    i.pos === "noun";
 }
 
 /** VN = VERB + NOUN */
-function isVN(pos: EPos): boolean {
-  return pos === "verb" || pos === "noun";
+function isVN(i: StackItem): i is JNode {
+  return i.pos === "verb" || i.pos === "noun";
 }
 
 function modTrident(b: Pos, c: Pos, d: Pos): Pos {
@@ -109,6 +110,9 @@ function modBident(b: Pos, c: Pos): Pos {
   return table[b[0] + c[0]] ?? "verb";
 }
 
+type Min4Array<T> = [T, T, T, T, ...T[]];
+type Stack = Min4Array<StackItem>;
+
 /**
  * Try to apply one reduction rule to the stack.
  *
@@ -134,9 +138,8 @@ function modBident(b: Pos, c: Pos): Pos {
  *
  * Returns true if a reduction was applied.
  */
-function tryReduce(stack: StackItem[]): boolean {
+function tryReduce(stack: Stack): boolean {
   const len = stack.length;
-  if (len < 4) return false; // invariant: 4 bottom marks are never consumed
 
   const a = stack[len - 1]; // top
   const b = stack[len - 2];
@@ -149,7 +152,7 @@ function tryReduce(stack: StackItem[]): boolean {
   const dp = d.pos;
 
   // Rule 0: EDGE V N any → consume b(V), c(N) → noun
-  if (isEdge(ap) && bp === "verb" && cp === "noun") {
+  if (isEdge(a) && bp === "verb" && cp === "noun") {
     stack.splice(
       len - 3,
       2,
@@ -164,7 +167,7 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 1: (EDGE+AVN) V V N → consume c(V), d(N) → noun
-  if (isEdgeAVN(ap) && bp === "verb" && cp === "verb" && dp === "noun") {
+  if (isEdgeAVN(a) && bp === "verb" && cp === "verb" && dp === "noun") {
     stack.splice(
       len - 4,
       2,
@@ -179,7 +182,7 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 2: (EDGE+AVN) N V N → consume b(N), c(V), d(N) → noun
-  if (isEdgeAVN(ap) && bp === "noun" && cp === "verb" && dp === "noun") {
+  if (isEdgeAVN(a) && bp === "noun" && cp === "verb" && dp === "noun") {
     stack.splice(
       len - 4,
       3,
@@ -195,7 +198,7 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 3: (EDGE+AVN) (V+N) A any → consume b(V+N), c(A) → verb
-  if (isEdgeAVN(ap) && isVN(bp) && cp === "adv") {
+  if (isEdgeAVN(a) && isVN(b) && cp === "adv") {
     stack.splice(
       len - 3,
       2,
@@ -210,7 +213,7 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 4: (EDGE+AVN) (V+N) C (V+N) → consume b, c, d → verb
-  if (isEdgeAVN(ap) && isVN(bp) && cp === "conj" && isVN(dp)) {
+  if (isEdgeAVN(a) && isVN(b) && cp === "conj" && isVN(d)) {
     stack.splice(
       len - 4,
       3,
@@ -226,7 +229,7 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 5: (EDGE+AVN) (V+N) V V → consume b, c, d → verb (fork/trident)
-  if (isEdgeAVN(ap) && isVN(bp) && cp === "verb" && dp === "verb") {
+  if (isEdgeAVN(a) && isVN(b) && cp === "verb" && dp === "verb") {
     stack.splice(
       len - 4,
       3,
@@ -246,7 +249,7 @@ function tryReduce(stack: StackItem[]): boolean {
   // is an implicit guard (e.g. Rule 6 implies ¬(bp=verb ∧ cp=noun) etc.).
 
   // Rule 6: EDGE CAVN CAVN CAVN → modifier trident → consume b,c,d
-  if (isEdge(ap) && isCAVN(bp) && isCAVN(cp) && isCAVN(dp)) {
+  if (isEdge(a) && isCAVN(b) && isCAVN(c) && isCAVN(d)) {
     stack.splice(
       len - 4,
       3,
@@ -262,11 +265,11 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 7: EDGE CAVN CAVN any → hook or modifier bident → consume b,c
-  if (isEdge(ap) && isCAVN(bp) && isCAVN(cp)) {
+  if (isEdge(a) && isCAVN(b) && isCAVN(c)) {
     stack.splice(
       len - 3,
       2,
-      <JNode> {
+      {
         kind: "hook",
         f: b,
         g: c,
@@ -277,16 +280,14 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 8: (NAME|N) COPULA CAVN any → Is → consume a,b,c
-  if ((ap === "name" || ap === "noun") && bp === "copula" && isCAVN(cp)) {
-    const aNode = a as { id?: string };
-    const bNode = b as { token?: string };
+  if ((ap === "name" || ap === "noun") && bp === "copula" && isCAVN(c)) {
     stack.splice(
       len - 3,
       3,
       <JNode> {
         kind: "assign",
-        name: aNode.id ?? "",
-        global: bNode.token === "=:",
+        name: (<{ id: string }> a).id,
+        global: (<{ token: string }> b).token === "=:",
         expr: c,
         pos: c.pos,
       },
@@ -295,7 +296,7 @@ function tryReduce(stack: StackItem[]): boolean {
   }
 
   // Rule 9: LPAR CAVN RPAR any → Paren → consume a,b,c → pos of b
-  if (ap === "lpar" && isCAVN(bp) && cp === "rpar") {
+  if (ap === "lpar" && isCAVN(b) && cp === "rpar") {
     stack.splice(len - 3, 3, b); // replace [rpar, cavn, lpar] with cavn
     return true;
   }
@@ -306,7 +307,7 @@ function tryReduce(stack: StackItem[]): boolean {
 function parsePrimTokens(tokens: PrimToken[]): JNode {
   // Stack initialized with 4 marks (per J spec)
   const mark: StackItem = { kind: "tmp", pos: "mark" };
-  const stack: StackItem[] = [mark, mark, mark, mark];
+  const stack: Stack = [mark, mark, mark, mark];
 
   // Queue: § token1 token2 ... (sentence prefixed by mark)
   // Move from the tail end of the queue to the top of the stack.
