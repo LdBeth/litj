@@ -71,7 +71,7 @@ export type JNode =
     name: string;
     global: boolean;
     expr: JNode;
-    pos: "copula";
+    pos: Pos; // same POS as the RHS expression (J Dictionary §E Rule 8)
   }
   | { kind: "monad"; verb: JNode; arg: JNode; pos: "noun" }
   | { kind: "dyad"; verb: JNode; left: JNode; right: JNode; pos: "noun" }

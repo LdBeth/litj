@@ -58,10 +58,10 @@ The modifier trident or bident table is:
 | C0 A1    | conj           | (u C0 v) A1                  | CA           |
 | C0 C1    | conj           | (u C0 v) (u C1 v)            | CC           |
 
-Use the table to complete `modTrident` and `modBident`, then complete `tryReduce`.
+Use the table to complete `modTrident` and `modBident`, then complete
+`tryReduce`.
 
 PrimToken now allow names, so enable the `8 Is` rule.
-
 
 ## Help
 

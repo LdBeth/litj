@@ -50,7 +50,9 @@ function isEdge(pos: EPos): boolean {
   return pos === "mark" || pos === "copula" || pos === "lpar";
 }
 
-/** EDGE + AVN = everything on the stack except RPAR and CONJ */
+/** EDGE + AVN (+ NAME) = everything on the stack except RPAR and CONJ.
+ *  Note: includes "name", which is not in the J Dictionary EDGE+AVN set,
+ *  but name in position a is harmless since no other rule condition fires on it. */
 function isEdgeAVN(pos: EPos): boolean {
   return pos !== "rpar" && pos !== "conj";
 }
@@ -67,19 +69,42 @@ function isVN(pos: EPos): boolean {
 
 function modTrident(b: Pos, c: Pos, d: Pos): Pos {
   const table: Record<string, Pos> = {
-    vvc: "conj", nvc: "conj", nca: "adv", ncc: "conj",
-    vca: "adv",  cvc: "conj", vcc: "conj", aca: "conj",
-    acc: "conj", cca: "conj", ccc: "conj", vnc: "adv",
-    avv: "adv",  cvv: "conj", aav: "conj", aaa: "adv",
-    caa: "conj", acn: "adv",  acv: "adv",  ccn: "conj", ccv: "conj",
+    vvc: "conj",
+    nvc: "conj",
+    nca: "adv",
+    ncc: "conj",
+    vca: "adv",
+    cvc: "conj",
+    vcc: "conj",
+    aca: "conj",
+    acc: "conj",
+    cca: "conj",
+    ccc: "conj",
+    vnc: "adv",
+    avv: "adv",
+    cvv: "conj",
+    aav: "conj",
+    aaa: "adv",
+    caa: "conj",
+    acn: "adv",
+    acv: "adv",
+    ccn: "conj",
+    ccv: "conj",
   };
   return table[b[0] + c[0] + d[0]] ?? "verb";
 }
 
 function modBident(b: Pos, c: Pos): Pos {
   const table: Record<string, Pos> = {
-    nc: "adv", vc: "adv", av: "adv", aa: "adv",
-    ac: "adv", cn: "adv", cv: "adv", ca: "conj", cc: "conj",
+    nc: "adv",
+    vc: "adv",
+    av: "adv",
+    aa: "adv",
+    ac: "adv",
+    cn: "adv",
+    cv: "adv",
+    ca: "conj",
+    cc: "conj",
   };
   return table[b[0] + c[0]] ?? "verb";
 }
@@ -111,7 +136,7 @@ function modBident(b: Pos, c: Pos): Pos {
  */
 function tryReduce(stack: StackItem[]): boolean {
   const len = stack.length;
-  if (len < 4) return false;
+  if (len < 4) return false; // invariant: 4 bottom marks are never consumed
 
   const a = stack[len - 1]; // top
   const b = stack[len - 2];
@@ -216,6 +241,10 @@ function tryReduce(stack: StackItem[]): boolean {
     return true;
   }
 
+  // Rules 6 & 7: EDGE CAVN ... — only reached when Rules 0–5 didn't match.
+  // Since isEdge ⊆ isEdgeAVN, Rules 0–5 were also candidates; their failure
+  // is an implicit guard (e.g. Rule 6 implies ¬(bp=verb ∧ cp=noun) etc.).
+
   // Rule 6: EDGE CAVN CAVN CAVN → modifier trident → consume b,c,d
   if (isEdge(ap) && isCAVN(bp) && isCAVN(cp) && isCAVN(dp)) {
     stack.splice(
@@ -251,13 +280,17 @@ function tryReduce(stack: StackItem[]): boolean {
   if ((ap === "name" || ap === "noun") && bp === "copula" && isCAVN(cp)) {
     const aNode = a as { id?: string };
     const bNode = b as { token?: string };
-    stack.splice(len - 3, 3, <JNode> {
-      kind: "assign",
-      name: aNode.id ?? "",
-      global: bNode.token === "=:",
-      expr: <JNode> c,
-      pos: "copula",
-    });
+    stack.splice(
+      len - 3,
+      3,
+      <JNode> {
+        kind: "assign",
+        name: aNode.id ?? "",
+        global: bNode.token === "=:",
+        expr: c,
+        pos: c.pos,
+      },
+    );
     return true;
   }
 
