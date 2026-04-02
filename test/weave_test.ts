@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { parse as parseXml } from "@std/xml";
-import type { XmlElement, XmlTextNode } from "@std/xml";
+import { children, textOf } from "../src/xml.ts";
+import type { XmlElement, XmlTextNode } from "../src/xml.ts";
 import { parse } from "../src/parser.ts";
 import { weave } from "../src/weave.ts";
 
@@ -8,18 +9,6 @@ import { weave } from "../src/weave.ts";
 
 function xmlDoc(src: string, variant: string): XmlElement {
   return parseXml(weave(parse(src), variant)).root!;
-}
-
-function children(el: XmlElement, tag?: string): XmlElement[] {
-  const els = el.children.filter((n): n is XmlElement => n.type === "element");
-  return tag ? els.filter((e) => e.name.local === tag) : els;
-}
-
-function textOf(el: XmlElement): string {
-  return el.children
-    .filter((n): n is XmlTextNode => n.type === "text")
-    .map((n) => n.text)
-    .join("");
 }
 
 // ── fixtures ─────────────────────────────────────────────────────────────────

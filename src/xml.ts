@@ -48,3 +48,15 @@ export const stringify = _stringify as (
   node: XmlDocument | XmlElement,
   options?: StringifyOptions,
 ) => string;
+
+export function children(el: XmlElement, tag?: string): XmlElement[] {
+  const els = el.children.filter((n): n is XmlElement => n.type === "element");
+  return tag ? els.filter((e) => e.name.local === tag) : els;
+}
+
+export function textOf(el: XmlElement): string {
+  return el.children
+    .filter((n): n is XmlTextNode => n.type === "text")
+    .map((n) => n.text)
+    .join("");
+}
