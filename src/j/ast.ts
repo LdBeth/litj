@@ -61,7 +61,7 @@ export type Token =
  * assignments, monadic/dyadic application, verb trains (hooks and forks),
  * adverb/conjunction derivation, and direct/explicit definitions.
  */
-export type Name = { kind: "name"; id: string; pos: Pos };
+type Name = { kind: "name"; id: string; pos: Pos };
 type Prim = { kind: "prim"; token: string; pos: Pos | "copula" };
 export type JNode =
   | { kind: "num"; nk: NumKind; text: string; pos: "noun" }

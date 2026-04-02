@@ -1,4 +1,4 @@
-import type { EPos, JNode, Name, Pos, PPos, PrimToken } from "./ast.ts";
+import type { EPos, JNode, Pos, PPos, PrimToken } from "./ast.ts";
 import { isPrimTokens, isValidTokens, tokenize } from "./lexer.ts";
 
 /**
@@ -68,11 +68,11 @@ function isVN(i: StackItem): i is JNode {
   return i.pos === "verb" || i.pos === "noun";
 }
 
-function is(i: StackItem, p: PPos): i is JNode  {
+function is(i: StackItem, p: PPos): i is JNode {
   return i.pos === p;
 }
 
-function isName(i: StackItem): i is Name {
+function isName(i: StackItem): boolean {
   return ("kind" in i && i.kind === "name");
 }
 
@@ -294,7 +294,7 @@ function tryReduce(stack: Stack): boolean {
       3,
       {
         kind: "assign",
-        name: <Name | (JNode & { pos: "noun" })>a,
+        name: <(JNode & { kind: "assign" })["name"]> a,
         global: b.token === "=:",
         expr: c,
         pos: c.pos,
@@ -312,7 +312,7 @@ function tryReduce(stack: Stack): boolean {
   return false;
 }
 
-function parsePrimTokens(tokens: PrimToken[]): JNode {
+function parsePrimTokens(tokens: readonly PrimToken[]): JNode {
   // Stack initialized with 4 marks (per J spec)
   const mark: Mark = { pos: "mark" };
   const stack: Stack = [mark, mark, mark, mark];
@@ -320,24 +320,18 @@ function parsePrimTokens(tokens: PrimToken[]): JNode {
   // Queue: § token1 token2 ... (sentence prefixed by mark)
   // Move from the tail end of the queue to the top of the stack.
   // Tokens move right-to-left, then the § prefix moves last.
-  let qi = tokens.length - 1;
-
-  for (;;) {
+  for (let qi = tokens.length - 1; qi >= -2; qi--) {
     // Try to reduce the top 4 stack items
-    if (tryReduce(stack)) {
-      continue; // After a successful reduction, try again
+    while (tryReduce(stack)) {
+      // After a successful reduction, try again
     }
 
     // No reduction: move next element from queue to stack
     if (qi >= 0) {
       stack.push(tokenToStackItem(tokens[qi]));
-      qi--;
     } else if (qi === -1) {
       // Push the § mark prefix of the queue
       stack.push(mark);
-      qi = -2;
-    } else {
-      break; // Queue fully exhausted (including § prefix)
     }
   }
 
@@ -352,6 +346,10 @@ function parsePrimTokens(tokens: PrimToken[]): JNode {
   if (
     stack.length !== 6 ||
     stack[0].pos !== "mark" ||
+    stack[1].pos !== "mark" ||
+    stack[2].pos !== "mark" ||
+    stack[3].pos !== "mark" ||
+    !isCAVN(stack[4]) ||
     stack[5].pos !== "mark"
   ) {
     throw Error(
@@ -361,5 +359,5 @@ function parsePrimTokens(tokens: PrimToken[]): JNode {
     );
   }
 
-  return <JNode> stack[4];
+  return stack[4];
 }
