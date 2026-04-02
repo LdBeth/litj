@@ -28,9 +28,8 @@ Use deno LSP to query definition and types.
 ### XML output
 
 New XML-emitting code should follow the `el`/`text` builder pattern in
-`src/weave.ts`. The `XmlDeclaration` local type workaround (omitting the
-upstream `declaration` field) is required to pass a custom declaration to
-`stringify`.
+`src/xml.ts`. The `XmlDeclaration` type workaround (omitting the upstream
+`declaration` field) is defined there and re-exported for use in `src/weave.ts`.
 
 ### Workflow for J Lexer/Parser Changes
 
@@ -65,6 +64,8 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
   file.
 - `src/weave.ts` — Emits custom XML with `<prose>`, `<chunk>`, and `<variants>`
   elements, filtering to chunks reachable at the target variant.
+- `src/xml.ts` — Shared XML utilities: `XmlDeclaration`/`XmlDocument` type
+  workarounds, `el`/`text` builder helpers, re-exports from `@std/xml`.
 - `src/j/` — J language parsing implementation: lexer, parser, and AST for J
   expressions. Used for syntax-aware processing of J code within literate
   sources.
