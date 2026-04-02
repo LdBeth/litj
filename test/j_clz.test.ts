@@ -37,7 +37,10 @@ Deno.test("parse zsin assignment structure", () => {
   const ast = parseJ("zsin =: 9&o.(((6:o.])*1:o.[)j.(5:o.])*2:o.[)11&o.");
   assertEquals(ast.kind, "assign");
   if (ast.kind === "assign") {
-    assertEquals(ast.name, "zsin");
+    assertEquals(ast.name.kind, "name");
+    if (ast.name.kind === "name") {
+      assertEquals(ast.name.id, "zsin");
+    }
     assertEquals(ast.global, true);
   }
 });

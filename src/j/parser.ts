@@ -1,4 +1,4 @@
-import type { EPos, JNode, Pos, PrimToken } from "./ast.ts";
+import type { EPos, JNode, Name, Pos, PPos, PrimToken } from "./ast.ts";
 import { isPrimTokens, isValidTokens, tokenize } from "./lexer.ts";
 
 /**
@@ -58,17 +58,21 @@ function isEdgeAVN(i: StackItem): boolean {
 }
 
 /** CAVN = CONJ + ADV + VERB + NOUN */
-function isCAVN(i: StackItem): i is JNode {
+function isCAVN(i: StackItem): i is JNode & { pos: Pos } {
   return i.pos === "conj" || i.pos === "adv" || i.pos === "verb" ||
     i.pos === "noun";
 }
 
 /** VN = VERB + NOUN */
-function isVN(i: StackItem): i is JNode {
+function isVN(i: StackItem): i is JNode & { pos: Pos } {
   return i.pos === "verb" || i.pos === "noun";
 }
 
-function isName(i: StackItem): boolean {
+function is(i: StackItem, p: PPos): i is JNode & { pos: typeof p } {
+  return i.pos === p;
+}
+
+function isName(i: StackItem): i is Name {
   return ("kind" in i && i.kind === "name");
 }
 
@@ -114,7 +118,7 @@ function modBident(b: Pos, c: Pos): Pos {
   return table[b[0] + c[0]] ?? "verb";
 }
 
-type Mark = Extract<{ pos: "mark" }, StackItem>;
+type Mark = StackItem & { pos: "mark" };
 type Stack = [Mark, Mark, Mark, Mark, ...StackItem[]];
 
 /**
@@ -145,10 +149,10 @@ type Stack = [Mark, Mark, Mark, Mark, ...StackItem[]];
 function tryReduce(stack: Stack): boolean {
   const len = stack.length;
 
-  const a = stack[len - 1]; // top
-  const b = stack[len - 2];
-  const c = stack[len - 3];
-  const d = stack[len - 4]; // deepest of top 4
+  const a: StackItem = stack[len - 1]; // top
+  const b: StackItem = stack[len - 2];
+  const c: StackItem = stack[len - 3];
+  const d: StackItem = stack[len - 4]; // deepest of top 4
 
   const ap = a.pos;
   const bp = b.pos;
@@ -156,11 +160,11 @@ function tryReduce(stack: Stack): boolean {
   const dp = d.pos;
 
   // Rule 0: EDGE V N any → consume b(V), c(N) → noun
-  if (isEdge(a) && bp === "verb" && cp === "noun") {
+  if (isEdge(a) && is(b, "verb") && is(c, "noun")) {
     stack.splice(
       len - 3,
       2,
-      <JNode> {
+      {
         kind: "monad",
         verb: b,
         arg: c,
@@ -175,7 +179,7 @@ function tryReduce(stack: Stack): boolean {
     stack.splice(
       len - 4,
       2,
-      <JNode> {
+      {
         kind: "monad",
         verb: c,
         arg: d,
@@ -190,7 +194,7 @@ function tryReduce(stack: Stack): boolean {
     stack.splice(
       len - 4,
       3,
-      <JNode> {
+      {
         kind: "dyad",
         verb: c,
         left: b,
@@ -206,7 +210,7 @@ function tryReduce(stack: Stack): boolean {
     stack.splice(
       len - 3,
       2,
-      <JNode> {
+      {
         kind: "adv",
         verb: b,
         adv: c,
@@ -221,7 +225,7 @@ function tryReduce(stack: Stack): boolean {
     stack.splice(
       len - 4,
       3,
-      <JNode> {
+      {
         kind: "conj",
         left: b,
         con: c,
@@ -237,7 +241,7 @@ function tryReduce(stack: Stack): boolean {
     stack.splice(
       len - 4,
       3,
-      <JNode> {
+      {
         kind: "fork",
         f: b,
         g: c,
@@ -257,7 +261,7 @@ function tryReduce(stack: Stack): boolean {
     stack.splice(
       len - 4,
       3,
-      <JNode> {
+      {
         kind: "fork",
         f: b,
         g: c,
@@ -284,14 +288,14 @@ function tryReduce(stack: Stack): boolean {
   }
 
   // Rule 8: (NAME|N) COPULA CAVN any → Is → consume a,b,c
-  if ((isName(a) || ap === "noun") && bp === "copula" && isCAVN(c)) {
+  if ((isName(a) || is(a, "noun")) && is(b, "copula") && isCAVN(c)) {
     stack.splice(
       len - 3,
       3,
-      <JNode> {
+      {
         kind: "assign",
-        name: (<{ id: string }> a).id,
-        global: (<{ token: string }> b).token === "=:",
+        name: <Name | (JNode & { pos: "noun" })> a,
+        global: (<JNode & { pos: "copula" }> b).token === "=:",
         expr: c,
         pos: c.pos,
       },

@@ -57,8 +57,9 @@ export function printJ(node: JNode): string {
       return node.token;
     case "assign": {
       const op = node.global ? "=:" : "=.";
+      const name = printJ(node.name);
       const rhs = printJ(node.expr);
-      return `${node.name} ${op} ${paren(rhs, node.expr)}`;
+      return `${paren(name, node.name)} ${op} ${paren(rhs, node.expr)}`;
     }
     case "adv": {
       // No space: `+/`, `+\`, `(f g)/`
@@ -128,7 +129,7 @@ export function nodeToXml(node: JNode): XmlElement {
       return el("prim", base, [text(printJ(node))]);
     case "assign":
       return el("assign", base, [
-        text(node.name),
+        text((typeof node.name == "string") ? node.name : printJ(node)),
         text(node.global ? "=:" : "=."),
         nodeToXml(node.expr),
       ]);

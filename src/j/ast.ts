@@ -1,15 +1,15 @@
 /** Part of speech for the shift-reduce parser table. */
 export type Pos =
-  | "copula"
   | "noun"
   | "verb"
   | "adv"
   | "conj";
 
+export type PPos = Pos | "copula";
+
 // Extended Pos
 export type EPos =
-  | Pos
-  | "name"
+  | PPos
   | "lpar"
   | "rpar"
   | "mark";
@@ -61,14 +61,16 @@ export type Token =
  * assignments, monadic/dyadic application, verb trains (hooks and forks),
  * adverb/conjunction derivation, and direct/explicit definitions.
  */
+export type Name = { kind: "name"; id: string; pos: Pos };
+type Prim = { kind: "prim"; token: string; pos: Pos | "copula" };
 export type JNode =
   | { kind: "num"; nk: NumKind; text: string; pos: "noun" }
   | { kind: "arr"; text: string; pos: "noun" }
   | { kind: "str"; value: string; pos: "noun" }
-  | { kind: "name"; id: string; pos: Pos }
+  | Name
   | {
     kind: "assign";
-    name: string;
+    name: Name | (JNode & { pos: "noun" });
     global: boolean;
     expr: JNode;
     pos: Pos; // same POS as the RHS expression (J Dictionary §E Rule 8)
@@ -79,6 +81,6 @@ export type JNode =
   | { kind: "fork"; f: JNode; g: JNode; h: JNode; pos: Pos }
   | { kind: "adv"; verb: JNode; adv: JNode; pos: Pos }
   | { kind: "conj"; left: JNode; con: JNode; right: JNode; pos: Pos }
-  | { kind: "prim"; token: string; pos: Pos };
+  | Prim;
 //  | { kind: "direct"; defKind: DirectKind | null; body: string } // {{ ... }}
 //  | { kind: "explicit"; valence: 1 | 2; body: string } // 3 : 0 / verb define

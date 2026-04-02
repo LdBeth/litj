@@ -2,8 +2,8 @@ import { assertEquals, assertMatch } from "@std/assert";
 import { parseJ } from "../src/j/parser.ts";
 import { printJ, printJXml } from "../src/j/print.ts";
 import { parse as parseXml } from "@std/xml";
-import type { XmlElement, XmlTextNode } from "@std/xml";
-import { children, textOf } from "../src/xml.ts";
+import type { XmlElement } from "../src/xml.ts";
+import { children, textOf as _ } from "../src/xml.ts";
 
 // ── Round-trip tests ──────────────────────────────────────────────────────────
 // parseJ(printJ(parseJ(src))) must equal parseJ(src)

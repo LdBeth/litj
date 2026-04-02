@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { parse as parseXml } from "@std/xml";
 import { children, textOf } from "../src/xml.ts";
-import type { XmlElement, XmlTextNode } from "../src/xml.ts";
+import type { XmlElement } from "../src/xml.ts";
 import { parse } from "../src/parser.ts";
 import { weave } from "../src/weave.ts";
 
