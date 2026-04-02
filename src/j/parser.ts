@@ -18,7 +18,7 @@ export function parseJ(source: string): JNode {
   return parsePrimTokens(tokens);
 }
 
-type StackItem = JNode | { pos: Exclude<EPos, Pos> };
+type StackItem = JNode | { pos: Exclude<EPos, PPos> };
 
 function tokenToStackItem(t: PrimToken): StackItem {
   switch (t.kind) {
