@@ -59,7 +59,7 @@ type ParseMode =
     tag: "chunk";
     header: ChunkHeader;
     lines: string[];
-    refinement: RefinementStep[] | null;
+    refinement?: RefinementStep[];
   };
 
 /** Flush accumulated lines into the last refinement step. */
@@ -144,7 +144,6 @@ export function parse(source: string): Document {
               tag: "chunk",
               header: parseChunkHeader(chunkMatch[1]),
               lines: [],
-              refinement: null,
             };
           } else if (JDEF_OPEN.test(line)) {
             mode = { tag: "jdef" };

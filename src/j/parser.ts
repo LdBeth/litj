@@ -64,11 +64,11 @@ function isCAVN(i: StackItem): i is JNode & { pos: Pos } {
 }
 
 /** VN = VERB + NOUN */
-function isVN(i: StackItem): i is JNode & { pos: Pos } {
+function isVN(i: StackItem): i is JNode {
   return i.pos === "verb" || i.pos === "noun";
 }
 
-function is(i: StackItem, p: PPos): i is JNode & { pos: typeof p } {
+function is(i: StackItem, p: PPos): i is JNode  {
   return i.pos === p;
 }
 
@@ -288,14 +288,14 @@ function tryReduce(stack: Stack): boolean {
   }
 
   // Rule 8: (NAME|N) COPULA CAVN any → Is → consume a,b,c
-  if ((isName(a) || is(a, "noun")) && is(b, "copula") && isCAVN(c)) {
+  if ((isName(a) || a.pos === "noun") && b.pos === "copula" && isCAVN(c)) {
     stack.splice(
       len - 3,
       3,
       {
         kind: "assign",
-        name: <Name | (JNode & { pos: "noun" })> a,
-        global: (<JNode & { pos: "copula" }> b).token === "=:",
+        name: <Name | (JNode & { pos: "noun" })>a,
+        global: b.token === "=:",
         expr: c,
         pos: c.pos,
       },

@@ -39,7 +39,8 @@ Deno.test("parse zsin assignment structure", () => {
   if (ast.kind === "assign") {
     assertEquals(ast.name.kind, "name");
     if (ast.name.kind === "name") {
-      assertEquals(ast.name.id, "zsin");
+      assertEquals(ast.name.id, "zsin")
+      assertEquals(ast.name.pos, "verb");
     }
     assertEquals(ast.global, true);
   }
