@@ -5,7 +5,7 @@ Deno.test("lex simple assignment", () => {
   const tokens = tokenize("x=.3");
   assertEquals(tokens.length, 3);
   assertEquals(tokens[0], { kind: "name", pos: "name", text: "x" });
-  assertEquals(tokens[1], { kind: "copula", pos: "copula", text: "=." });
+  assertEquals(tokens[1], { kind: "prim", pos: "copula", text: "=." });
   assertEquals(tokens[2], {
     kind: "number",
     pos: "noun",

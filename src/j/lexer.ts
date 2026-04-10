@@ -44,14 +44,6 @@ const CONJUNCTIONS = new Set([".",":","!:","^:","@:","@.","&:","&.","&.:","&",
 
 const COPULAS = new Set("=. =:".split(" "));
 
-/**
- * Coproduct fusion: 5 disjoint Set lookups → 1 Map lookup.
- *
- *   classifyPrim text = case PRIM_TABLE.get(text) of
- *     Nothing      -> { kind: "unknown", pos: "mark",   text }
- *     Just "copula" -> { kind: "copula",  pos: "copula", text }
- *     Just pos     -> { kind: "prim",    pos,           text }
- */
 const PRIM_TABLE: ReadonlyMap<string, PPos> = (() => {
   const m = new Map<string, PPos>();
   for (const t of COPULAS) m.set(t, "copula");
@@ -111,7 +103,6 @@ function isGraphic(c: string): boolean {
 function classifyPrim(text: string): Token {
   const pos = PRIM_TABLE.get(text);
   if (!pos) return { kind: "unknown", pos: "mark", text };
-  if (pos === "copula") return { kind: "copula", pos: "copula", text };
   return { kind: "prim", pos, text };
 }
 
