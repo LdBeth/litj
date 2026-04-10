@@ -275,6 +275,16 @@ NB.% ]]
   assertThrows(() => parse(bad), Error, "Unterminated NB.% <j");
 });
 
+Deno.test("parse: unterminated annotation at EOF throws", () => {
+  const bad = `NB.% variants: base
+NB.% [[base.foo
+x =: 1
+NB.% <j
+x =: 1
+`;
+  assertThrows(() => parse(bad), Error, "Unterminated NB.% <j");
+});
+
 Deno.test("parse: multi-line annotation expression", () => {
   const src = `NB.% variants: base
 NB.% [[base.foo

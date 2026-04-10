@@ -199,6 +199,11 @@ export function parse(source: string): Document {
   }
 
   if (mode.tag === "chunk") {
+    if (mode.annot !== undefined) {
+      throw new Error(
+        `Unterminated NB.% <j annotation in chunk "${mode.header.variant}.${mode.header.name}"`,
+      );
+    }
     throw new Error("Unterminated chunk at end of file");
   }
   if (mode.tag === "jdef") {
