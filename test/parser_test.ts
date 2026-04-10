@@ -207,7 +207,7 @@ const ANNOT_SAMPLE = `NB.% variants: base
 NB.% [[base.foo
 x =: 1
 NB.% <j
-x =: 1
+annotated =: x + 1
 NB.% >
 y =: 2
 NB.% ]]
@@ -219,7 +219,7 @@ Deno.test("parse: annotation sets segments on chunk", () => {
   if (c.kind === "chunk") {
     assertEquals(c.segments?.length, 3);
     assertEquals(c.segments?.[0], { kind: "code", text: "x =: 1" });
-    assertEquals(c.segments?.[1], { kind: "annotation", text: "x =: 1" });
+    assertEquals(c.segments?.[1], { kind: "annotation", text: "annotated =: x + 1" });
     assertEquals(c.segments?.[2], { kind: "code", text: "y =: 2" });
   }
 });
