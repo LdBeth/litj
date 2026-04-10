@@ -6,13 +6,29 @@ import type {
 } from "./xml.ts";
 import { el, stringify, text } from "./xml.ts";
 
-import type { Document } from "./types.ts";
+import type { Chunk, Document } from "./types.ts";
 import { isReachable } from "./variants.ts";
+import { nodeToXml, parseJ } from "./j/index.ts";
 
 // ── XML node builders ────────────────────────────────────────────────────────
 
 function code(s: string): XmlElement {
   return el("code", {}, [text(s)]);
+}
+
+function codeSegments(chunk: Chunk): XmlElement {
+  if (!chunk.segments) return code(chunk.body);
+  const children: XmlNode[] = chunk.segments.flatMap((seg): XmlNode[] => {
+    if (seg.kind === "code") return seg.text ? [text(seg.text)] : [];
+    try {
+      return [el("annotation", { expr: seg.text }, [nodeToXml(parseJ(seg.text))])];
+    } catch (e) {
+      throw new Error(
+        `J parse failed in chunk "${chunk.name}": ${seg.text}\n${e}`,
+      );
+    }
+  });
+  return el("code", {}, children);
 }
 
 const decl: XmlDeclaration = {
@@ -40,7 +56,7 @@ export function weave(doc: Document, target: string): string {
           final: step.isFinal ? "true" : undefined,
         }, [code(step.body)])
       )
-      : [code(chunk.body)];
+      : [codeSegments(chunk)];
 
     return [el("chunk", {
       variant: chunk.variant,
