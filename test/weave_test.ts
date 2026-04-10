@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { parse as parseXml } from "@std/xml";
 import { children, textOf } from "../src/xml.ts";
 import type { XmlElement } from "../src/xml.ts";
@@ -135,4 +135,56 @@ Deno.test("weave: overrides attribute present on override chunk", () => {
   const chunks = children(root, "chunk");
   const polyChunk = chunks.find((c) => c.attributes["variant"] === "poly")!;
   assertEquals(polyChunk.attributes["overrides"], "base.mkTyVar");
+});
+
+// ── J annotation tests ───────────────────────────────────────────────────────
+
+Deno.test("weave: annotation block emits <annotation> with J AST", () => {
+  const src = `NB.% variants: base
+NB.% [[base.foo
+x =: 1
+NB.% <j
+x =: 1
+NB.% >
+y =: 2
+NB.% ]]
+`;
+  const root = xmlDoc(src, "base");
+  const chunk = children(root, "chunk")[0];
+  const code = children(chunk, "code")[0];
+
+  const annotations = children(code, "annotation");
+  assertEquals(annotations.length, 1);
+  assertEquals(annotations[0].attributes["expr"], "x =: 1");
+
+  // The annotation contains a J AST root element
+  const jAst = children(annotations[0]);
+  assertEquals(jAst.length, 1);
+});
+
+Deno.test("weave: unannotated chunk emits plain <code>", () => {
+  const src = `NB.% variants: base
+NB.% [[base.x
+x =: 1
+NB.% ]]
+`;
+  const root = xmlDoc(src, "base");
+  const chunk = children(root, "chunk")[0];
+  const code = children(chunk, "code")[0];
+  assertEquals(children(code, "annotation").length, 0);
+  assertEquals(textOf(code), "x =: 1");
+});
+
+Deno.test("weave: annotation parse failure throws", () => {
+  const src = `NB.% variants: base
+NB.% [[base.bad
+NB.% <j
+=: broken syntax @@@
+NB.% >
+NB.% ]]
+`;
+  assertThrows(
+    () => weave(parse(src), "base"),
+    Error,
+  );
 });
