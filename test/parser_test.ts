@@ -200,3 +200,93 @@ NB.% ]]
     assertEquals(c.body, "sieve =: {{ final }}");
   }
 });
+
+// ── J annotation tests ───────────────────────────────────────────────────────
+
+const ANNOT_SAMPLE = `NB.% variants: base
+NB.% [[base.foo
+x =: 1
+NB.% <j
+x =: 1
+NB.% >
+y =: 2
+NB.% ]]
+`;
+
+Deno.test("parse: annotation sets segments on chunk", () => {
+  const doc = parse(ANNOT_SAMPLE);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.segments?.length, 3);
+    assertEquals(c.segments?.[0], { kind: "code", text: "x =: 1" });
+    assertEquals(c.segments?.[1], { kind: "annotation", text: "x =: 1" });
+    assertEquals(c.segments?.[2], { kind: "code", text: "y =: 2" });
+  }
+});
+
+Deno.test("parse: annotation excluded from tangle body", () => {
+  const doc = parse(ANNOT_SAMPLE);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.body, "x =: 1\ny =: 2");
+  }
+});
+
+Deno.test("parse: chunk without annotation has undefined segments", () => {
+  const src = `NB.% variants: base
+NB.% [[base.x
+x =: 1
+NB.% ]]
+`;
+  const doc = parse(src);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.segments, undefined);
+  }
+});
+
+Deno.test("parse: annotation inside refinement throws", () => {
+  const bad = `NB.% variants: base
+NB.% [[base.sieve
+NB.% <<
+sieve =: naive
+NB.% <j
+sieve =: naive
+NB.% >
+NB.% :: refine >>
+sieve =: final
+NB.% ]]
+`;
+  assertThrows(
+    () => parse(bad),
+    Error,
+    "J annotation not allowed inside refinement",
+  );
+});
+
+Deno.test("parse: unterminated annotation throws", () => {
+  const bad = `NB.% variants: base
+NB.% [[base.foo
+x =: 1
+NB.% <j
+x =: 1
+NB.% ]]
+`;
+  assertThrows(() => parse(bad), Error, "Unterminated NB.% <j");
+});
+
+Deno.test("parse: multi-line annotation expression", () => {
+  const src = `NB.% variants: base
+NB.% [[base.foo
+NB.% <j
+line1
+line2
+NB.% >
+NB.% ]]
+`;
+  const doc = parse(src);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.segments?.[0], { kind: "annotation", text: "line1\nline2" });
+  }
+});
