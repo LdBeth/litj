@@ -37,8 +37,7 @@ export type PrimToken =
   | { kind: "array"; pos: "noun"; text: string }
   | { kind: "number"; pos: "noun"; nk: NumKind; text: string }
   | { kind: "string"; pos: "noun"; text: string }
-  | { kind: "prim"; pos: Pos; text: string }
-  | { kind: "copula"; pos: "copula"; text: string }
+  | { kind: "prim"; pos: PPos; text: string }
   | { kind: "lpar"; pos: "lpar" }
   | { kind: "rpar"; pos: "rpar" }
   | { kind: "direct_noun"; pos: "noun"; body: string }
@@ -57,9 +56,12 @@ export type Token =
 /**
  * J abstract syntax tree node.
  *
- * Covers J's six parts of speech and the main syntactic constructs:
- * assignments, monadic/dyadic application, verb trains (hooks and forks),
- * adverb/conjunction derivation, and direct/explicit definitions.
+ * Covers J's five parts of speech (noun, verb, adverb, conjunction, copula)
+ * and the main syntactic constructs: assignments, monadic/dyadic application,
+ * verb trains (hooks and forks), and adverb/conjunction derivation.
+ *
+ * Note: Direct and explicit definitions are tokenized (lexer.ts:444-521)
+ * but not represented in the AST; the parser rejects them (parser.ts:15).
  */
 type Name = { kind: "name"; id: string; pos: Pos };
 type Prim = { kind: "prim"; token: string; pos: Pos | "copula" };

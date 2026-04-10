@@ -33,9 +33,7 @@ function tokenToStackItem(t: PrimToken): StackItem {
     case "direct_noun":
       return { kind: "str", value: t.body, pos: "noun" };
     case "name":
-      return { kind: "name", id: t.text, pos: "verb" }; // assume name to be verb
-    case "copula":
-      return { kind: "prim", token: t.text, pos: "copula" };
+      return { kind: "name", id: t.text, pos: "verb" }; // default names to verb for shift-reduce; final POS determined by parsing context
     case "lpar":
       return { pos: "lpar" };
     case "rpar":

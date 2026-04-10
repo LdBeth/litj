@@ -85,7 +85,7 @@ export function printJ(node: JNode): string {
       const f = printJ(node.f);
       const g = printJ(node.g);
       const h = printJ(node.h);
-      return `${paren(f, node.f)} ${paren(g, node.g)} ${h}`;
+      return `${paren(f, node.f)} ${paren(g, node.g)} ${paren(h, node.h)}`;
     }
     case "monad": {
       const v = printJ(node.verb);
@@ -129,7 +129,7 @@ export function nodeToXml(node: JNode): XmlElement {
       return el("prim", base, [text(printJ(node))]);
     case "assign":
       return el("assign", base, [
-        text((typeof node.name == "string") ? node.name : printJ(node)),
+        text(printJ(node.name)),
         text(node.global ? "=:" : "=."),
         nodeToXml(node.expr),
       ]);
