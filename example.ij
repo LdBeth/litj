@@ -54,7 +54,7 @@ sieve=:{{ set=.}.>:i.y
 }}
 NB.% ]]
 
-NB.% [[test.naive
+NB.% [[n2.naive
 (sieve 200)-:p:i.46
 NB.% <j
 (sieve 200) -: p: i. 46

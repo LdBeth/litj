@@ -21,7 +21,9 @@ function codeSegments(chunk: Chunk): XmlElement {
   const children: XmlNode[] = chunk.segments.flatMap((seg): XmlNode[] => {
     if (seg.kind === "code") return seg.text ? [text(seg.text)] : [];
     try {
-      return [el("annotation", { expr: seg.text }, [nodeToXml(parseJ(seg.text))])];
+      return [
+        el("annotation", { expr: seg.text }, [nodeToXml(parseJ(seg.text))]),
+      ];
     } catch (e) {
       throw new Error(
         `J parse failed in chunk "${chunk.variant}.${chunk.name}": ${seg.text}`,

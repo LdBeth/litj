@@ -1,19 +1,29 @@
 # J Annotation Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Embed annotated J AST XML in weave output for chunk bodies that contain `NB.% <j` / `NB.% >` annotation blocks.
+**Goal:** Embed annotated J AST XML in weave output for chunk bodies that
+contain `NB.% <j` / `NB.% >` annotation blocks.
 
-**Architecture:** Add `BodySegment` type and `segments?` to `Chunk`; extend the parser to recognize annotation markers and build structured segments; update weave to emit `<annotation>` elements with J AST children. Tangle is untouched. TDD throughout.
+**Architecture:** Add `BodySegment` type and `segments?` to `Chunk`; extend the
+parser to recognize annotation markers and build structured segments; update
+weave to emit `<annotation>` elements with J AST children. Tangle is untouched.
+TDD throughout.
 
-**Tech Stack:** Deno/TypeScript, `@std/assert`, `src/j/index.ts` (parseJ, nodeToXml)
+**Tech Stack:** Deno/TypeScript, `@std/assert`, `src/j/index.ts` (parseJ,
+nodeToXml)
 
 ---
 
 ## File Map
 
-- **Modify** `src/types.ts` — add `BodySegment` union type, add `segments?` to `Chunk`
-- **Modify** `src/parser.ts` — add `ANNOT_OPEN`/`ANNOT_CLOSE` regexes, extend chunk mode
+- **Modify** `src/types.ts` — add `BodySegment` union type, add `segments?` to
+  `Chunk`
+- **Modify** `src/parser.ts` — add `ANNOT_OPEN`/`ANNOT_CLOSE` regexes, extend
+  chunk mode
 - **Modify** `src/weave.ts` — add `codeSegments()` helper, import J parser
 - **Modify** `test/parser_test.ts` — new annotation parsing tests
 - **Modify** `test/weave_test.ts` — new annotation weave tests
@@ -23,11 +33,13 @@
 ### Task 1: Add BodySegment type and segments field to Chunk
 
 **Files:**
+
 - Modify: `src/types.ts`
 
 - [ ] **Step 1: Add BodySegment type and segments field**
 
-In `src/types.ts`, add after the `RefinementStep` interface and before the `Chunk` interface:
+In `src/types.ts`, add after the `RefinementStep` interface and before the
+`Chunk` interface:
 
 ```typescript
 /** One segment of a chunk body: plain code or a J annotation to parse. */
@@ -56,6 +68,7 @@ export interface Chunk {
 ```bash
 deno check src/types.ts
 ```
+
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -70,6 +83,7 @@ git commit -m "types: add BodySegment and Chunk.segments for J annotation"
 ### Task 2: Write failing parser tests for annotations
 
 **Files:**
+
 - Modify: `test/parser_test.ts`
 
 - [ ] **Step 1: Write failing tests**
@@ -173,6 +187,7 @@ NB.% ]]
 ```bash
 deno test test/parser_test.ts
 ```
+
 Expected: new tests FAIL (annotation-related), existing tests PASS.
 
 ---
@@ -180,6 +195,7 @@ Expected: new tests FAIL (annotation-related), existing tests PASS.
 ### Task 3: Implement annotation parsing in parser.ts
 
 **Files:**
+
 - Modify: `src/parser.ts`
 
 - [ ] **Step 1: Import BodySegment and add new regexes**
@@ -201,7 +217,7 @@ import type {
 Add two new regexes after the existing `REFINE_STEP` line:
 
 ```typescript
-const ANNOT_OPEN  = /^NB\.%\s+<j\s*$/;
+const ANNOT_OPEN = /^NB\.%\s+<j\s*$/;
 const ANNOT_CLOSE = /^NB\.%\s+>\s*$/;
 ```
 
@@ -323,6 +339,7 @@ case "chunk": {
 ```bash
 deno test test/parser_test.ts
 ```
+
 Expected: ALL tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -337,6 +354,7 @@ git commit -m "parser: recognize NB.% <j / NB.% > annotation blocks"
 ### Task 4: Write failing weave tests for annotation output
 
 **Files:**
+
 - Modify: `test/weave_test.ts`
 
 - [ ] **Step 1: Write failing tests**
@@ -413,6 +431,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 ```bash
 deno test test/weave_test.ts
 ```
+
 Expected: new annotation tests FAIL, existing tests PASS.
 
 ---
@@ -420,6 +439,7 @@ Expected: new annotation tests FAIL, existing tests PASS.
 ### Task 5: Implement annotation emission in weave.ts
 
 **Files:**
+
 - Modify: `src/weave.ts`
 
 - [ ] **Step 1: Add imports**
@@ -450,7 +470,9 @@ function codeSegments(chunk: Chunk): XmlElement {
   const children: XmlNode[] = chunk.segments.flatMap((seg) => {
     if (seg.kind === "code") return seg.text ? [text(seg.text)] : [];
     try {
-      return [el("annotation", { expr: seg.expr }, [nodeToXml(parseJ(seg.expr))])];
+      return [
+        el("annotation", { expr: seg.expr }, [nodeToXml(parseJ(seg.expr))]),
+      ];
     } catch (e) {
       throw new Error(
         `J parse failed in chunk "${chunk.name}": ${seg.expr}\n${e}`,
@@ -494,6 +516,7 @@ const body: XmlNode[] = chunk.steps.length > 1
 ```bash
 deno test
 ```
+
 Expected: ALL tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -516,7 +539,8 @@ cp /dev/stdin docs/superpowers/plans/2026-04-10-j-annotation-integration.md << '
 EOF
 ```
 
-Actually, the plan file is at `/Users/ldbeth/.claude/plans/lucky-singing-comet.md` — copy it:
+Actually, the plan file is at
+`/Users/ldbeth/.claude/plans/lucky-singing-comet.md` — copy it:
 
 ```bash
 cp /Users/ldbeth/.claude/plans/lucky-singing-comet.md \
@@ -528,6 +552,7 @@ cp /Users/ldbeth/.claude/plans/lucky-singing-comet.md \
 ```bash
 deno test
 ```
+
 Expected: ALL tests PASS.
 
 - [ ] **Step 3: Commit docs**

@@ -15,7 +15,7 @@ const CHUNK_OPEN = /^NB\.%\s+\[\[(.+)$/;
 const CHUNK_CLOSE = /^NB\.%\s+\]\]\s*$/;
 const REFINE_OPEN = /^NB\.%\s+<<\s*$/;
 const REFINE_STEP = /^NB\.%\s+::\s*(.*?)(\s+>>)?\s*$/;
-const ANNOT_OPEN  = /^NB\.%\s+<j\s*$/;
+const ANNOT_OPEN = /^NB\.%\s+<j\s*$/;
 const ANNOT_CLOSE = /^NB\.%\s+>\s*$/;
 const JDEF_OPEN = /^\[\s*0\s+:\s*0\s*$/;
 const JDEF_CLOSE = /^\)\s*$/;
@@ -102,11 +102,16 @@ export function parse(source: string): Document {
             flushStepLines(mode.refinement, mode.lines);
             steps = mode.refinement;
           } else {
-            const hasAnnotations = mode.segments.some((s) => s.kind === "annotation");
+            const hasAnnotations = mode.segments.some((s) =>
+              s.kind === "annotation"
+            );
             let body: string;
             if (hasAnnotations) {
               if (mode.lines.length > 0) {
-                mode.segments.push({ kind: "code", text: mode.lines.join("\n") });
+                mode.segments.push({
+                  kind: "code",
+                  text: mode.lines.join("\n"),
+                });
               }
               body = mode.segments
                 .filter((s): s is Extract<BodySegment, { kind: "code" }> =>
@@ -120,19 +125,24 @@ export function parse(source: string): Document {
             }
             steps = [{ reason: "", isFinal: false, body }];
           }
-          sections.push(<Chunk> {
-            kind: "chunk",
-            ...mode.header,
-            body: steps[steps.length - 1].body,
-            steps,
-            segments: mode.segments.some((s) => s.kind === "annotation")
-              ? mode.segments
-              : undefined,
-          });
+          sections.push(
+            <Chunk> {
+              kind: "chunk",
+              ...mode.header,
+              body: steps[steps.length - 1].body,
+              steps,
+              segments: mode.segments.some((s) => s.kind === "annotation")
+                ? mode.segments
+                : undefined,
+            },
+          );
           mode = { tag: "top" };
         } else if (mode.annot !== undefined) {
           if (ANNOT_CLOSE.test(line)) {
-            mode.segments.push({ kind: "annotation", text: mode.annot.join("\n") });
+            mode.segments.push({
+              kind: "annotation",
+              text: mode.annot.join("\n"),
+            });
             mode.annot = undefined;
           } else {
             mode.annot.push(line);
