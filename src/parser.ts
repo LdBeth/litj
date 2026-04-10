@@ -1,4 +1,5 @@
 import type {
+  BodySegment,
   Chunk,
   Document,
   Prose,
@@ -14,6 +15,8 @@ const CHUNK_OPEN = /^NB\.%\s+\[\[(.+)$/;
 const CHUNK_CLOSE = /^NB\.%\s+\]\]\s*$/;
 const REFINE_OPEN = /^NB\.%\s+<<\s*$/;
 const REFINE_STEP = /^NB\.%\s+::\s*(.*?)(\s+>>)?\s*$/;
+const ANNOT_OPEN  = /^NB\.%\s+<j\s*$/;
+const ANNOT_CLOSE = /^NB\.%\s+>\s*$/;
 const JDEF_OPEN = /^\[\s*0\s+:\s*0\s*$/;
 const JDEF_CLOSE = /^\)\s*$/;
 
@@ -59,6 +62,8 @@ type ParseMode =
     tag: "chunk";
     header: ChunkHeader;
     lines: string[];
+    segments: BodySegment[];
+    annot?: string[];
     refinement?: RefinementStep[];
   };
 
@@ -87,24 +92,62 @@ export function parse(source: string): Document {
     switch (mode.tag) {
       case "chunk": {
         if (CHUNK_CLOSE.test(line)) {
+          if (mode.annot !== undefined) {
+            throw new Error(
+              `Unterminated NB.% <j annotation in chunk "${mode.header.variant}.${mode.header.name}"`,
+            );
+          }
           let steps: RefinementStep[];
           if (mode.refinement) {
             flushStepLines(mode.refinement, mode.lines);
             steps = mode.refinement;
           } else {
-            steps = [{
-              reason: "",
-              isFinal: false,
-              body: mode.lines.join("\n"),
-            }];
+            const hasAnnotations = mode.segments.some((s) => s.kind === "annotation");
+            let body: string;
+            if (hasAnnotations) {
+              if (mode.lines.length > 0) {
+                mode.segments.push({ kind: "code", text: mode.lines.join("\n") });
+              }
+              body = mode.segments
+                .filter((s): s is Extract<BodySegment, { kind: "code" }> =>
+                  s.kind === "code"
+                )
+                .map((s) => s.text)
+                .filter((t) => t.length > 0)
+                .join("\n");
+            } else {
+              body = mode.lines.join("\n");
+            }
+            steps = [{ reason: "", isFinal: false, body }];
           }
-          sections.push({
+          sections.push(<Chunk> {
             kind: "chunk",
             ...mode.header,
             body: steps[steps.length - 1].body,
             steps,
+            segments: mode.segments.some((s) => s.kind === "annotation")
+              ? mode.segments
+              : undefined,
           });
           mode = { tag: "top" };
+        } else if (mode.annot !== undefined) {
+          if (ANNOT_CLOSE.test(line)) {
+            mode.segments.push({ kind: "annotation", text: mode.annot.join("\n") });
+            mode.annot = undefined;
+          } else {
+            mode.annot.push(line);
+          }
+        } else if (ANNOT_OPEN.test(line)) {
+          if (mode.refinement) {
+            throw new Error(
+              `J annotation not allowed inside refinement in chunk "${mode.header.variant}.${mode.header.name}"`,
+            );
+          }
+          if (mode.lines.length > 0) {
+            mode.segments.push({ kind: "code", text: mode.lines.join("\n") });
+            mode.lines = [];
+          }
+          mode.annot = [];
         } else if (!mode.refinement && REFINE_OPEN.test(line)) {
           mode.refinement = [{ reason: "", isFinal: false, body: "" }];
           mode.lines = [];
@@ -144,6 +187,7 @@ export function parse(source: string): Document {
               tag: "chunk",
               header: parseChunkHeader(chunkMatch[1]),
               lines: [],
+              segments: [],
             };
           } else if (JDEF_OPEN.test(line)) {
             mode = { tag: "jdef" };
