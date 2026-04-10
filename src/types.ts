@@ -16,7 +16,7 @@ export interface RefinementStep {
 /** One segment of a chunk body: plain code or a J annotation to parse. */
 export type BodySegment =
   | { kind: "code"; text: string }
-  | { kind: "annotation"; expr: string };
+  | { kind: "annotation"; text: string };
 
 /** A named code chunk tagged with a variant. */
 export interface Chunk {
@@ -29,7 +29,10 @@ export interface Chunk {
   body: string;
   /** Always length >= 1. Length > 1 means the chunk contains a << derivation. */
   steps: RefinementStep[];
-  /** Structured body for weave. Present only when at least one annotation exists. */
+  /**
+   * Structured body for weave. Present only when at least one annotation exists.
+   * When absent, weave treats `body` as a single plain-code segment.
+   */
   segments?: BodySegment[];
 }
 
