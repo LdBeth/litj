@@ -56,6 +56,9 @@ NB.% ]]
 
 NB.% [[test.naive
 (sieve 200)-:p:i.46
+NB.% <j
+(sieve 200) -: p: i. 46
+NB.% >
 NB.% ]]
 
 [ 0 :0
