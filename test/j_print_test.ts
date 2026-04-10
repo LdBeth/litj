@@ -63,8 +63,104 @@ Deno.test("printJ: string literal", () => {
 
 // ── XML spot checks ───────────────────────────────────────────────────────────
 
+Deno.test("XML num", () => {
+  const root = xmlDoc("42");
+  const num = children(root, "num")[0];
+  assertEquals(num.attributes["pos"], "noun");
+  assertEquals(num.attributes["nk"], "integer");
+  assertEquals(_(num), "42");
+});
+
+Deno.test("XML arr", () => {
+  const root = xmlDoc("1 2 3");
+  const arr = children(root, "arr")[0];
+  assertEquals(arr.attributes["pos"], "noun");
+  assertEquals(_(arr), "1 2 3");
+});
+
+Deno.test("XML str", () => {
+  const root = xmlDoc("'hello'");
+  const str = children(root, "str")[0];
+  assertEquals(str.attributes["pos"], "noun");
+  assertEquals(_(str), "'hello'");
+});
+
+Deno.test("XML name", () => {
+  const root = xmlDoc("abc");
+  const name = children(root, "name")[0];
+  assertEquals(_(name), "abc");
+});
+
+Deno.test("XML prim", () => {
+  const root = xmlDoc("+");
+  const prim = children(root, "prim")[0];
+  assertEquals(prim.attributes["pos"], "verb");
+  assertEquals(_(prim), "+");
+});
+
 Deno.test("XML adverb", () => {
   const root = xmlDoc("+/");
   const adv = children(root, "adv")[0];
   assertEquals(adv.attributes["pos"], "verb");
+  const [verb, advOp] = children(adv);
+  assertEquals(verb.name.local, "prim");
+  assertEquals(advOp.name.local, "prim");
+});
+
+Deno.test("XML conj", () => {
+  const root = xmlDoc("9&o.");
+  const conj = children(root, "conj")[0];
+  assertEquals(conj.attributes["pos"], "verb");
+  const [left, con, right] = children(conj);
+  assertEquals(left.name.local, "num");
+  assertEquals(con.name.local, "prim");
+  assertEquals(right.name.local, "prim");
+});
+
+Deno.test("XML monad", () => {
+  const root = xmlDoc("-1");
+  const monad = children(root, "monad")[0];
+  assertEquals(monad.attributes["pos"], "noun");
+  const [verb, arg] = children(monad);
+  assertEquals(verb.name.local, "prim");
+  assertEquals(arg.name.local, "num");
+});
+
+Deno.test("XML dyad", () => {
+  const root = xmlDoc("1+2");
+  const dyad = children(root, "dyad")[0];
+  assertEquals(dyad.attributes["pos"], "noun");
+  const [verb, left, right] = children(dyad);
+  assertEquals(verb.name.local, "prim");
+  assertEquals(left.name.local, "num");
+  assertEquals(right.name.local, "num");
+});
+
+Deno.test("XML hook", () => {
+  const root = xmlDoc("+-");
+  const hook = children(root, "hook")[0];
+  assertEquals(hook.attributes["pos"], "verb");
+  const [f, g] = children(hook);
+  assertEquals(f.name.local, "prim");
+  assertEquals(g.name.local, "prim");
+});
+
+Deno.test("XML fork", () => {
+  const root = xmlDoc("+*-");
+  const fork = children(root, "fork")[0];
+  assertEquals(fork.attributes["pos"], "verb");
+  const [f, g, h] = children(fork);
+  assertEquals(f.name.local, "prim");
+  assertEquals(g.name.local, "prim");
+  assertEquals(h.name.local, "prim");
+});
+
+Deno.test("XML assign", () => {
+  const root = xmlDoc("f=:+/");
+  const assign = children(root, "assign")[0];
+  assertEquals(assign.attributes["pos"], "verb");
+  // children: text("f"), text("=:"), nodeToXml(expr)
+  const nested = children(assign);
+  assertEquals(nested.length, 1); // only the expr is an element
+  assertEquals(nested[0].name.local, "adv");
 });
