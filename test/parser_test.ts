@@ -290,3 +290,22 @@ NB.% ]]
     assertEquals(c.segments?.[0], { kind: "annotation", text: "line1\nline2" });
   }
 });
+
+Deno.test("parse: annotation as final segment produces no trailing code segment", () => {
+  const src = `NB.% variants: base
+NB.% [[base.foo
+x =: 1
+NB.% <j
+annotated =: x + 1
+NB.% >
+NB.% ]]
+`;
+  const doc = parse(src);
+  const c = doc.sections[0];
+  if (c.kind === "chunk") {
+    assertEquals(c.segments?.length, 2);
+    assertEquals(c.segments?.[0], { kind: "code", text: "x =: 1" });
+    assertEquals(c.segments?.[1], { kind: "annotation", text: "annotated =: x + 1" });
+    assertEquals(c.body, "x =: 1");
+  }
+});
