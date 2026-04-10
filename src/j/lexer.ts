@@ -1,6 +1,7 @@
 import type {
   DirectKind,
   NumKind,
+  PPos,
   PrimToken,
   Token,
   ValidToken,
@@ -42,6 +43,24 @@ const CONJUNCTIONS = new Set([".",":","!:","^:","@:","@.","&:","&.","&.:","&",
   "F::"]);
 
 const COPULAS = new Set("=. =:".split(" "));
+
+/**
+ * Coproduct fusion: 5 disjoint Set lookups → 1 Map lookup.
+ *
+ *   classifyPrim text = case PRIM_TABLE.get(text) of
+ *     Nothing      -> { kind: "unknown", pos: "mark",   text }
+ *     Just "copula" -> { kind: "copula",  pos: "copula", text }
+ *     Just pos     -> { kind: "prim",    pos,           text }
+ */
+const PRIM_TABLE: ReadonlyMap<string, PPos> = (() => {
+  const m = new Map<string, PPos>();
+  for (const t of COPULAS) m.set(t, "copula");
+  for (const t of NOUNS) m.set(t, "noun");
+  for (const t of ADVERBS) m.set(t, "adv");
+  for (const t of CONJUNCTIONS) m.set(t, "conj");
+  for (const t of VERBS) m.set(t, "verb");
+  return m;
+})();
 
 const GRAPHICS = new Set('=<>+*-%$~|,;#!/\\[]`@&?^"{}'.split(""));
 
@@ -90,12 +109,10 @@ function isGraphic(c: string): boolean {
 
 /** Classify a primitive token by part of speech */
 function classifyPrim(text: string): Token {
-  if (COPULAS.has(text)) return { kind: "copula", pos: "copula", text };
-  if (NOUNS.has(text)) return { kind: "prim", pos: "noun", text };
-  if (ADVERBS.has(text)) return { kind: "prim", pos: "adv", text };
-  if (CONJUNCTIONS.has(text)) return { kind: "prim", pos: "conj", text };
-  if (VERBS.has(text)) return { kind: "prim", pos: "verb", text };
-  return { kind: "unknown", pos: "mark", text };
+  const pos = PRIM_TABLE.get(text);
+  if (!pos) return { kind: "unknown", pos: "mark", text };
+  if (pos === "copula") return { kind: "copula", pos: "copula", text };
+  return { kind: "prim", pos, text };
 }
 
 // ── Parser combinators for number lexing ────────────────────────────────────
@@ -116,18 +133,23 @@ function tryChar(src: string, pos: number, c: string): number {
   return pos < src.length && src[pos] === c ? pos + 1 : pos;
 }
 
-/** Lex digits with optional leading underscore. Returns null if no digits found. */
-function lexDigits(src: string, pos: number): number | null {
+/**
+ * Lex digits with optional leading underscore.
+ *
+ * Compute-once fusion: carries `inf` flag indicating bare _ or __
+ * (infinity), eliminating re-examination in lexUptofloat.
+ */
+function lexDigits(
+  src: string,
+  pos: number,
+): { end: number; inf: boolean } | null {
   const p = tryChar(src, pos, "_");
   const end = scanWhile(src, p, isDigit);
   if (end === p) {
     // bare _ or __ (infinity)
-    if (p > pos) {
-      return tryChar(src, p, "_");
-    }
-    return null;
+    return p > pos ? { end: tryChar(src, p, "_"), inf: true } : null;
   }
-  return end;
+  return { end, inf: false };
 }
 
 /** Check if next char is a valid number terminator */
@@ -158,18 +180,10 @@ function lexUptofloat(
   src: string,
   pos: number,
 ): { end: number; isInt: boolean } | null {
-  const afterDigits = lexDigits(src, pos);
-  if (afterDigits === null) return null;
-  let p = afterDigits;
-  let isInt = true;
-
-  // bare _ or __ → float (infinity), not integer
-  if (
-    src[pos] === "_" &&
-    (p === pos + 1 || (p === pos + 2 && src[pos + 1] === "_"))
-  ) {
-    isInt = false;
-  }
+  const d = lexDigits(src, pos);
+  if (d === null) return null;
+  let p = d.end;
+  let isInt = !d.inf;
 
   // Optional decimal point + digits
   if (p < src.length && src[p] === ".") {
