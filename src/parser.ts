@@ -98,13 +98,13 @@ export function parse(source: string): Document {
             );
           }
           let steps: RefinementStep[];
+          const hasAnnotations = mode.segments.some((s) =>
+            s.kind === "annotation"
+          );
           if (mode.refinement) {
             flushStepLines(mode.refinement, mode.lines);
             steps = mode.refinement;
           } else {
-            const hasAnnotations = mode.segments.some((s) =>
-              s.kind === "annotation"
-            );
             let body: string;
             if (hasAnnotations) {
               if (mode.lines.length > 0) {
@@ -114,11 +114,9 @@ export function parse(source: string): Document {
                 });
               }
               body = mode.segments
-                .filter((s): s is Extract<BodySegment, { kind: "code" }> =>
-                  s.kind === "code"
+                .flatMap((s) =>
+                  s.kind === "code" && s.text.length > 0 ? [s.text] : []
                 )
-                .map((s) => s.text)
-                .filter((t) => t.length > 0)
                 .join("\n");
             } else {
               body = mode.lines.join("\n");
@@ -131,9 +129,7 @@ export function parse(source: string): Document {
               ...mode.header,
               body: steps[steps.length - 1].body,
               steps,
-              segments: mode.segments.some((s) => s.kind === "annotation")
-                ? mode.segments
-                : undefined,
+              segments: hasAnnotations ? mode.segments : undefined,
             },
           );
           mode = { tag: "top" };
