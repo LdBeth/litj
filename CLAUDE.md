@@ -19,7 +19,7 @@ deno task weave -- --variant <name> <input.ij>
 deno test
 ```
 
-See [example.ij](example.ij) for a working literate source example.
+Literate source example: [example.ij](example.ij)
 
 ## Development
 
@@ -31,21 +31,14 @@ New XML-emitting code should follow the `el`/`text` builder pattern in
 `src/xml.ts`. The `XmlDeclaration` type workaround (omitting the upstream
 `declaration` field) is defined there and re-exported for use in `src/weave.ts`.
 
-### Workflow for J Lexer/Parser Changes
-
-Follow this workflow: amend types and tests first, ask for approval, then
-implement. Changing `src/j/ast.ts` Token type will break `src/j/parser.ts` —
-update both. `src/j/rewrite.ts` handles AST rewriting; `src/j/index.ts` is the
-public API for the J sub-module.
-
 ## Testing
 
 Tests are in `test/` and cover parser, variants, tangle, and weave
 functionality.
 
-`test/j_lexer_test.ts` tests the J tokenizer. `test/j_parser_test.ts` tests the
-J parser. `test/j_clz.test.ts` tests parser against real world J code.
-`test/j_print_test.ts` tests the J printer (round-trips and XML spot checks).
+`test/j_*.ts` covers the J subsystem: `j_lexer_test.ts` (tokenizer),
+`j_parser_test.ts` (parser), `j_print_test.ts` (printer round-trips + XML),
+`j_clz.test.ts` (parser against real-world J from the `clz` script).
 
 ## Architecture
 
@@ -55,8 +48,11 @@ The pipeline is: **parse** → **resolve variants** → **tangle** or **weave**.
   dispatches to tangle or weave.
 - `src/types.ts` — AST types.
 - `src/parser.ts` — Line-by-line parser. Recognizes `NB.% variants:` header,
-  `NB.% [[variant.name` chunk opens, `NB.% ]]` chunk closes. The `0 : 0` / `)`
-  delimiters mark prose blocks. Everything else is throw away.
+  `NB.% [[variant.name` chunk opens, `NB.% ]]` chunk closes, `NB.% <j …
+  NB.% >` annotation blocks, and `NB.% << … >>` refinement derivations with
+  `NB.% :: reason` separators. The `[ 0 : 0` / `)` delimiters mark prose
+  blocks. Chunk bodies are emitted as plain text plus, when annotations are
+  present, a `segments: BodySegment[]` array (see `src/types.ts`).
 - `src/variants.ts` — Variant partial order traversal (`isAncestor`,
   `isReachable`) and `resolveChunks`: for each chunk name, selects the most
   specific variant ≤ target, respecting explicit `-variant.name` overrides.
@@ -98,4 +94,36 @@ distinguish prose blocks from `0 : 0` used in code:
 This prose text appears in woven output
 without the delimiters.
 )
+```
+
+### J annotation blocks
+
+Inside a chunk, a block bracketed by `NB.% <j` and `NB.% >` marks J code
+that should be parsed into an annotated AST (emitted as XML during weave,
+per `src/j/j-ast.xsd`). The preceding unannotated code is kept verbatim:
+
+```
+NB.% [[n2.naive
+(sieve 200)-:p:i.46
+NB.% <j
+(sieve 200) -: p: i. 46
+NB.% >
+NB.% ]]
+```
+
+### Refinement derivations
+
+A chunk body can be a step-by-step derivation, bracketed by `NB.% <<` and
+`>>`, with `NB.% :: reason` marking each rewrite. Only the final step is
+tangled; all steps are preserved for weave:
+
+```
+NB.% [[poly.Sieve
+NB.% <<
+sieve=:{{ ... }}
+NB.% :: more compact tacit form
+sieve=:{{ ... }}
+NB.% :: make y argument implicit (reflex: f~ y = y f y) >>
+sieve=:{{ ... }}
+NB.% ]]
 ```
